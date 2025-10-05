@@ -7,8 +7,10 @@ from .serializers import (
     ListLikesSerializer,
     LikeTweetSerializer,
     UnlikTweetSerializer,
+    CommentOnTweetSerializer,
+    ListCommentSerializer,
 )
-from .models import Tweet, Like
+from .models import Tweet, Like, Comment
 from .permissions import IsAuthorOrReadOnly, IsTweetAuthor
 
 # Create your views here.
@@ -66,3 +68,26 @@ class ListLikesAPIView(generics.ListAPIView):
     def get_queryset(self):
         tweet = self.get_tweet()
         return Like.objects.filter(tweet=tweet).select_related("user", "user__profile")
+
+
+class CommentOnTweetAPIView(generics.CreateAPIView):
+    queryset = Comment.objects.all()
+    serializer_class = CommentOnTweetSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_tweet(self):
+        return get_object_or_404(Tweet, pk=self.kwargs["pk"])
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user, tweet=self.get_tweet())
+
+
+class ListCommentAPIView(generics.ListAPIView):
+    serializer_class = ListCommentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_tweet(self):
+        return get_object_or_404(Tweet, pk=self.kwargs["pk"])
+
+    def get_queryset(self):
+        return self.get_tweet().comments.all()
