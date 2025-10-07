@@ -78,6 +78,11 @@ class CommentOnTweetAPIView(generics.CreateAPIView):
     def get_tweet(self):
         return get_object_or_404(Tweet, pk=self.kwargs["pk"])
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["tweet"] = self.get_tweet()
+        return context
+
     def perform_create(self, serializer):
         serializer.save(user=self.request.user, tweet=self.get_tweet())
 
@@ -90,4 +95,9 @@ class ListCommentAPIView(generics.ListAPIView):
         return get_object_or_404(Tweet, pk=self.kwargs["pk"])
 
     def get_queryset(self):
-        return self.get_tweet().comments.all()
+        return (
+            self.get_tweet()
+            .comments.filter(parent=None)
+            .select_related("user", "user__profile", "parent")
+            .prefetch_related("replies")
+        )

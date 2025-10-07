@@ -48,6 +48,9 @@ class Like(models.Model):
 class Comment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="comments")
     tweet = models.ForeignKey(Tweet, on_delete=models.CASCADE, related_name="comments")
+    parent = models.ForeignKey(
+        "self", on_delete=models.CASCADE, null=True, blank=True, related_name="replies"
+    )
     content = models.TextField(max_length=500)
     image = models.ImageField(upload_to="comments/", blank=True, null=True)
 
@@ -62,3 +65,7 @@ class Comment(models.Model):
     def clean(self):
         if not self.content and not self.image:
             raise ValidationError("A comment must have a content, an image or both")
+        if self.parent and self.parent.tweet != self.tweet:
+            raise ValidationError(
+                "Reply must belong to the same tweet as its parent comment"
+            )

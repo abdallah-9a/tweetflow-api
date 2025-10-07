@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Tweet, Like, Comment
+from .models import Tweet, Like, Comment, Retweet
 
 
 class CreateTweetSerializer(serializers.ModelSerializer):
@@ -14,7 +14,12 @@ class CreateTweetSerializer(serializers.ModelSerializer):
         return obj.user.profile.name
 
     def get_comments(self, obj):
-        return obj.comments.all()
+        queryset = (
+            obj.comments.select_related("user", "user__profile")
+            .filter(parent=None)
+            .all()
+        )
+        return CommentSerializer(queryset, many=True).data
 
 
 class RetrieveTweetSerializer(serializers.ModelSerializer):
@@ -29,7 +34,12 @@ class RetrieveTweetSerializer(serializers.ModelSerializer):
         return obj.user.profile.name
 
     def get_comments(self, obj):
-        return obj.comments.all()
+        queryset = (
+            obj.comments.select_related("user", "user__profile")
+            .filter(parent=None)
+            .all()
+        )
+        return CommentSerializer(queryset, many=True).data
 
 
 class LikeTweetSerializer(serializers.ModelSerializer):
@@ -84,10 +94,13 @@ class ListLikesSerializer(serializers.ModelSerializer):
 class CommentOnTweetSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField(read_only=True)
     tweet = serializers.PrimaryKeyRelatedField(read_only=True)
+    parent = serializers.PrimaryKeyRelatedField(
+        queryset=Comment.objects.all(), required=False, allow_null=True
+    )
 
     class Meta:
         model = Comment
-        fields = ["user", "tweet", "content", "image"]
+        fields = ["user", "tweet", "parent", "content", "image"]
 
     def get_user(self, obj):
         return obj.user.profile.name
@@ -95,6 +108,8 @@ class CommentOnTweetSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         content = attrs.get("content", "")
         image = attrs.get("image")
+        parent = attrs.get("parent")
+        tweet = self.context.get("tweet")
 
         if not content and not image:
             raise serializers.ValidationError(
@@ -103,15 +118,65 @@ class CommentOnTweetSerializer(serializers.ModelSerializer):
                     "detail": "A comment must have either content, image or both",
                 }
             )
+
+        if parent:
+            # Ensure replies stay on the same tweet
+            if tweet and parent.tweet_id != tweet.pk:
+                raise serializers.ValidationError(
+                    {
+                        "error": "invalid_parent",
+                        "detail": "Reply must reference a comment from the same tweet",
+                    }
+                )
+
         return attrs
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField(read_only=True)
+    parent = serializers.PrimaryKeyRelatedField(read_only=True)
+    replies = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Comment
+        fields = [
+            "id",
+            "user",
+            "parent",
+            "content",
+            "image",
+            "created_at",
+            "replies",
+        ]
+
+    def get_user(self, obj):
+        return obj.user.profile.name
+
+    def get_replies(self, obj):
+        queryset = obj.replies.select_related("user", "user__profile")
+        return CommentSerializer(queryset, many=True).data
 
 
 class ListCommentSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField(read_only=True)
+    parent = serializers.PrimaryKeyRelatedField(read_only=True)
+    replies = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Comment
-        fields = ["user", "content", "image", "created_at"]
+        fields = [
+            "id",
+            "user",
+            "parent",
+            "content",
+            "image",
+            "replies",
+            "created_at",
+        ]
 
     def get_user(self, obj):
         return obj.user.profile.name
+
+    def get_replies(self, obj):
+        queryset = obj.replies.select_related("user", "user__profile")
+        return CommentSerializer(queryset, many=True).data
