@@ -4,13 +4,14 @@ from rest_framework.permissions import IsAuthenticated
 from .serializers import (
     CreateTweetSerializer,
     RetrieveTweetSerializer,
+    RetweetSerializer,
     ListLikesSerializer,
     LikeTweetSerializer,
     UnlikTweetSerializer,
     CommentOnTweetSerializer,
     ListCommentSerializer,
 )
-from .models import Tweet, Like, Comment
+from .models import Tweet, Like, Comment, Retweet
 from .permissions import IsAuthorOrReadOnly, IsTweetAuthor
 
 # Create your views here.
@@ -29,6 +30,29 @@ class RetrieveDeleteTweetAPIView(generics.RetrieveDestroyAPIView):
     queryset = Tweet.objects.all()
     serializer_class = RetrieveTweetSerializer
     permission_classes = [IsAuthenticated, IsAuthorOrReadOnly]
+
+
+class RetweetAPIView(generics.CreateAPIView):
+    queryset = Retweet.objects.all()
+    serializer_class = RetweetSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_tweet(self):
+        return get_object_or_404(Tweet, pk=self.kwargs["pk"])
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user, tweet=self.get_tweet())
+
+
+class ListRetweetsAPIView(generics.ListAPIView):
+    serializer_class = RetweetSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_tweet(self):
+        return get_object_or_404(Tweet, pk=self.kwargs["pk"])
+
+    def get_queryset(self):
+        return Retweet.objects.filter(tweet=self.get_tweet()).all()
 
 
 class LikeTweetAPIView(generics.CreateAPIView):

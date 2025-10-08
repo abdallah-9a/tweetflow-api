@@ -25,6 +25,20 @@ class Tweet(models.Model):
         return self.likes.count()
 
 
+class Retweet(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    tweet = models.ForeignKey(Tweet, on_delete=models.CASCADE, related_name="retweets")
+    quote = models.TextField(max_length=100, blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.profile.name} repost {self.tweet.content[:20]}"
+
+
 class Like(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="likes")
     tweet = models.ForeignKey(Tweet, on_delete=models.CASCADE, related_name="likes")
