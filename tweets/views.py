@@ -13,17 +13,32 @@ from .serializers import (
 )
 from .models import Tweet, Like, Comment, Retweet
 from .permissions import IsAuthorOrReadOnly, IsTweetAuthor
+from relationships.models import Follow
 
 # Create your views here.
 
 
 class ListCreateTweetAPIView(generics.ListCreateAPIView):
-    queryset = Tweet.objects.all()
     serializer_class = CreateTweetSerializer
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    def get_queryset(self):
+        """
+        Returns a queryset of tweets for the user's feed, including tweets from users
+        that the current user follows as well as their own tweets. The tweets are
+        ordered by creation date in descending order (most recent first).
+        """
+        followings = Follow.objects.filter(follower=self.request.user).values_list(
+            "following", flat=True
+        )
+        followings_ids = list(followings) + [self.request.user.id]
+        tweets = Tweet.objects.filter(user_id__in=followings_ids).order_by(
+            "-created_at"
+        )
+        return tweets
 
 
 class RetrieveDeleteTweetAPIView(generics.RetrieveDestroyAPIView):
