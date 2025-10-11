@@ -6,7 +6,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.urls import reverse
 from .models import User
 from .utils import Util
-from rest_framework import status
+from rest_framework import status, filters
 from rest_framework.response import Response
 from .serializers import (
     UserRegistrationSerializer,
@@ -151,6 +151,8 @@ class UserPasswordResetView(APIView):
 class UserListView(generics.ListAPIView):
     serializer_class = UserSerializer
     permission_classes = [IsAdminUser]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["username", "profile__name"]
 
     def get_queryset(self):
         return User.objects.all().exclude(pk=self.request.user.pk)

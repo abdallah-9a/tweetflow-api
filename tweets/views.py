@@ -1,5 +1,5 @@
 from django.shortcuts import get_object_or_404
-from rest_framework import generics
+from rest_framework import generics, filters
 from rest_framework.permissions import IsAuthenticated
 from .serializers import (
     CreateTweetSerializer,
@@ -21,6 +21,8 @@ from relationships.models import Follow
 class ListCreateTweetAPIView(generics.ListCreateAPIView):
     serializer_class = CreateTweetSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["user__profile__name", "content"]
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

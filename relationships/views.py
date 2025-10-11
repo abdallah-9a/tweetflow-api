@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
-from rest_framework import generics
+from rest_framework import generics, filters
 from rest_framework.permissions import IsAuthenticated
 from .serializers import (
     FollowUserSerializer,
@@ -52,7 +52,7 @@ class ListFollowersAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         user = get_object_or_404(User, pk=self.kwargs["pk"])
-        return User.objects.filter(following__following=user).select_related("profile")
+        return User.objects.filter(pk=user.pk).select_related("profile")
 
 
 class ListFollowingAPIView(generics.ListAPIView):
@@ -61,4 +61,4 @@ class ListFollowingAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         user = get_object_or_404(User, pk=self.kwargs["pk"])
-        return User.objects.filter(followers__follower=user).select_related("profile")
+        return User.objects.filter(pk=user.pk).select_related("profile")

@@ -50,6 +50,9 @@ class RetweetSerializer(serializers.ModelSerializer):
         model = Retweet
         fields = ["user", "tweet", "quote"]
 
+    def get_user(self, obj):
+        return obj.user.profile.name
+
 
 class ListRetweetsSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField(read_only=True)
