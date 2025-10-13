@@ -25,5 +25,6 @@ urlpatterns = [
     path("", include("accounts.urls")),
     path("tweets/", include("tweets.urls")),
     path("users/", include("relationships.urls")),
+    path("", include("interactions.urls")),
 ]
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
