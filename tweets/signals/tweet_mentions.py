@@ -24,7 +24,7 @@ def handle_tweet_mentions(sender, instance, created, **kwargs):
 
     for username in usernames:
         mentioned_user = User.objects.filter(username=username).first()
-        if mentioned_user:
+        if mentioned_user and mentioned_user != instance.user:
             Mention.objects.create(
                 actor=instance.user,
                 mentioned_user=mentioned_user,
