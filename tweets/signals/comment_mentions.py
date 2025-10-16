@@ -23,12 +23,13 @@ def handle_comment_mentions(sender, instance, created, **kwargs):
 
     content_type = ContentType.objects.get_for_model(Comment)
 
-    for username in usernames:
-        mentioned_user = User.objects.filter(username=username).first()
-        if mentioned_user and mentioned_user != instance.user:
+    usernames = set(usernames)
+    mentioned_users = User.objects.filter(username__in=usernames)
+    for user in mentioned_users:
+        if user != instance.user:
             Mention.objects.create(
                 actor=instance.user,
-                mentioned_user=mentioned_user,
+                mentioned_user=user,
                 content_type=content_type,
                 content_id=instance.id,
             )
