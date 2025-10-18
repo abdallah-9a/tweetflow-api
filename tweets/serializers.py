@@ -22,6 +22,17 @@ class CreateTweetSerializer(serializers.ModelSerializer):
         return CommentSerializer(queryset, many=True).data
 
 
+class PostSerializer(serializers.Serializer):
+    type = serializers.CharField()
+    result = serializers.DictField()
+
+    def to_representation(self, instance):
+        if isinstance(instance, Tweet):
+            return {"type": "tweet", "result": RetrieveTweetSerializer(instance).data}
+        elif isinstance(instance, Retweet):
+            return {"type": "retweet", "result": RetweetSerializer(instance).data}
+
+
 class RetrieveTweetSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField(read_only=True)
     comments = serializers.SerializerMethodField(read_only=True)
@@ -48,7 +59,7 @@ class RetweetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Retweet
-        fields = ["user", "tweet", "quote"]
+        fields = ["user", "quote", "tweet"]
 
     def get_user(self, obj):
         return obj.user.profile.name
@@ -59,7 +70,7 @@ class ListRetweetsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Retweet
-        fields = ["user", "tweet", "quote", "created_at"]
+        fields = ["user", "quote", "tweet", "created_at"]
 
     def get_user(self, obj):
         return obj.user.profile.name

@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from django.contrib.auth import get_user_model
 from rest_framework import generics, filters
 from rest_framework.permissions import IsAuthenticated
 from .serializers import (
@@ -10,12 +11,14 @@ from .serializers import (
     UnlikTweetSerializer,
     CommentOnTweetSerializer,
     ListCommentSerializer,
+    PostSerializer,
 )
 from .models import Tweet, Like, Comment, Retweet
 from .permissions import IsAuthorOrReadOnly, IsTweetAuthor
 from relationships.models import Follow
 
 # Create your views here.
+User = get_user_model()
 
 
 class ListCreateTweetAPIView(generics.ListCreateAPIView):
@@ -41,6 +44,39 @@ class ListCreateTweetAPIView(generics.ListCreateAPIView):
             "-created_at"
         )
         return tweets
+
+
+class UserPostsAPIView(generics.ListAPIView):
+    """
+    API endpoint that returns a paginated list of a user's posts (tweets and retweets)
+    sorted by creation date in descending order.
+    """
+
+    serializer_class = PostSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = get_object_or_404(User, username=self.kwargs["username"])
+        tweets = (
+            Tweet.objects.filter(user=user)
+            .select_related("user", "user__profile")
+            .prefetch_related("comments")
+        )
+        retweets = (
+            Retweet.objects.filter(user=user)
+            .select_related("user", "user__profile", "tweet")
+            .prefetch_related("tweet__comments")
+        )
+        from itertools import chain
+        from operator import attrgetter
+
+        posts = sorted(
+            chain(tweets, retweets),
+            key=attrgetter("created_at"),
+            reverse=True,
+        )
+
+        return posts
 
 
 class RetrieveDeleteTweetAPIView(generics.RetrieveDestroyAPIView):

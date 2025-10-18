@@ -26,7 +26,7 @@ class Tweet(models.Model):
 
 
 class Retweet(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="retweets")
     tweet = models.ForeignKey(Tweet, on_delete=models.CASCADE, related_name="retweets")
     quote = models.TextField(max_length=100, blank=True, null=True)
 
