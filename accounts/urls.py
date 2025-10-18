@@ -18,7 +18,7 @@ urlpatterns = [
     path("logout/", UserLogoutView.as_view(), name="logout"),
     path("me/", UserProfileView.as_view(), name="profile"),
     path("users/", UserListView.as_view(), name="users-list"),  # Admin
-    path("users/<int:pk>/", UserRetrieveView.as_view(), name="user-detail"),  # Admin
+    path("users/<str:username>/", UserRetrieveView.as_view(), name="user-detail"),
     path("me/update/", UserUpdateProfileView.as_view(), name="update-profile"),
     path("change-password/", ChangePasswordView.as_view(), name="change-password"),
     path(

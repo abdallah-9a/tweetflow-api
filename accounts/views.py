@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.db.models import Count
 from django.contrib.auth import authenticate
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
@@ -15,6 +16,7 @@ from .serializers import (
     UserProfileSerializer,
     UserUpdateProfileSerializer,
     UserSerializer,
+    ListUserSerializer,
     ChangePasswordSerializer,
     SendPasswordRestEmailSerializer,
     UserPasswordResetSerializer,
@@ -149,7 +151,7 @@ class UserPasswordResetView(APIView):
 
 
 class UserListView(generics.ListAPIView):
-    serializer_class = UserSerializer
+    serializer_class = ListUserSerializer
     permission_classes = [IsAdminUser]
     filter_backends = [filters.SearchFilter]
     search_fields = ["username", "profile__name"]
@@ -161,4 +163,17 @@ class UserListView(generics.ListAPIView):
 class UserRetrieveView(generics.RetrieveAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuthenticated]
+    lookup_field = "username"
+
+    def get_queryset(self):  # avoid N+1 problem by precomputing in one query
+        return (
+            super()
+            .get_queryset()
+            .select_related("profile")
+            .prefetch_related("tweets", "retweets")
+            .annotate(
+                followers_count=Count("followers", distinct=True),
+                following_count=Count("following", distinct=True),
+            )
+        )
