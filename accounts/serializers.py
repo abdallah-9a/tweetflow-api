@@ -116,10 +116,12 @@ class ChangePasswordSerializer(serializers.ModelSerializer):
         if password != password2:
             raise serializers.ValidationError("Passwords Don't Match")
 
-        user.set_password(password)
-        user.save()
-
         return attrs
+
+    def save(self, **kwargs):
+        user = self.context["user"]
+        user.set_password(self.validated_data["password"])
+        user.save()
 
 
 class SendPasswordRestEmailSerializer(serializers.Serializer):
@@ -165,15 +167,20 @@ class UserPasswordResetSerializer(serializers.Serializer):
             if not PasswordResetTokenGenerator().check_token(user, token):
                 raise serializers.ValidationError("Reset link is invalid or expired")
 
-            user.set_password(password)
-            user.save()
-
+            self.user = user
             return attrs
 
         except Exception:
             raise serializers.ValidationError(
                 "Something went wrong with resetting password"
             )
+
+    def save(self, **kwargs):
+        user = getattr(self, "user", None)
+        user.set_password(self.validated_data["password"])
+        user.save()
+        
+        return user
 
 
 class ProfileSerializer(serializers.ModelSerializer):

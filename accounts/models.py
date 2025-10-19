@@ -25,9 +25,9 @@ class User(AbstractUser):
 
 class Profile(models.Model):
     STATUS_CHOICES = [
-        ("Active", "active"),
-        ("Deactive", "deactive"),
-        ("Suspended", "suspended"),
+        ("active", "Active"),
+        ("deactive", "Deactive"),
+        ("suspended", "Suspended"),
     ]
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -44,7 +44,7 @@ class Profile(models.Model):
         upload_to="cover_images/", default="cover_images/blank.jpg"
     )
     website = models.URLField(blank=True, null=True)
-    status = models.CharField(choices=STATUS_CHOICES, default="active")
+    status = models.CharField(choices=STATUS_CHOICES, default="active", max_length=10)
     location = models.CharField(max_length=100, blank=True, null=True)
 
     def __str__(self):
