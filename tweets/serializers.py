@@ -3,15 +3,12 @@ from .models import Tweet, Like, Comment, Retweet
 
 
 class CreateTweetSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField(read_only=True)
+    user = serializers.CharField(source="user.profile.name", read_only=True)
     comments = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Tweet
         fields = ["user", "content", "likes_count", "image", "comments"]
-
-    def get_user(self, obj):
-        return obj.user.profile.name
 
     def get_comments(self, obj):
         queryset = (
@@ -34,15 +31,12 @@ class PostSerializer(serializers.Serializer):
 
 
 class RetrieveTweetSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField(read_only=True)
+    user = serializers.CharField(source="user.profile.name", read_only=True)
     comments = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Tweet
         fields = ["user", "content", "image", "likes_count", "comments", "created_at"]
-
-    def get_user(self, obj):
-        return obj.user.profile.name
 
     def get_comments(self, obj):
         queryset = (
@@ -54,38 +48,29 @@ class RetrieveTweetSerializer(serializers.ModelSerializer):
 
 
 class RetweetSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField(read_only=True)
+    user = serializers.CharField(source="user.profile.name", read_only=True)
     tweet = RetrieveTweetSerializer(read_only=True)
 
     class Meta:
         model = Retweet
         fields = ["user", "quote", "tweet"]
 
-    def get_user(self, obj):
-        return obj.user.profile.name
-
 
 class ListRetweetsSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField(read_only=True)
+    user = serializers.CharField(source="user.profile.name", read_only=True)
 
     class Meta:
         model = Retweet
         fields = ["user", "quote", "tweet", "created_at"]
 
-    def get_user(self, obj):
-        return obj.user.profile.name
-
 
 class LikeTweetSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField(read_only=True)
+    user = serializers.CharField(source="user.profile.name", read_only=True)
     tweet = RetrieveTweetSerializer(read_only=True)
 
     class Meta:
         model = Like
         fields = ["user", "tweet"]
-
-    def get_user(self, obj):
-        return obj.user.profile.name
 
     def validate(self, attrs):
         user = self.context["request"].user
@@ -103,30 +88,24 @@ class LikeTweetSerializer(serializers.ModelSerializer):
 
 
 class UnlikTweetSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField(read_only=True)
+    user = serializers.CharField(source="user.profile.name", read_only=True)
     tweet = RetrieveTweetSerializer(read_only=True)
 
     class Meta:
         model = Like
         fields = ["user", "tweet"]
 
-    def get_user(self, obj):
-        return obj.user.profile.name
-
 
 class ListLikesSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField(read_only=True)
+    user = serializers.CharField(source="user.profile.name", read_only=True)
 
     class Meta:
         model = Like
         fields = ["user", "created_at"]
 
-    def get_user(self, obj):
-        return obj.user.profile.name
-
 
 class CommentOnTweetSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField(read_only=True)
+    user = serializers.CharField(source="user.profile.name", read_only=True)
     tweet = serializers.PrimaryKeyRelatedField(read_only=True)
     parent = serializers.PrimaryKeyRelatedField(
         queryset=Comment.objects.all(), required=False, allow_null=True
@@ -135,9 +114,6 @@ class CommentOnTweetSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ["user", "tweet", "parent", "content", "image"]
-
-    def get_user(self, obj):
-        return obj.user.profile.name
 
     def validate(self, attrs):
         content = attrs.get("content", "")
@@ -167,7 +143,7 @@ class CommentOnTweetSerializer(serializers.ModelSerializer):
 
 
 class CommentSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField(read_only=True)
+    user = serializers.CharField(source="user.profile.name", read_only=True)
     parent = serializers.PrimaryKeyRelatedField(read_only=True)
     replies = serializers.SerializerMethodField(read_only=True)
 
@@ -182,9 +158,6 @@ class CommentSerializer(serializers.ModelSerializer):
             "created_at",
             "replies",
         ]
-
-    def get_user(self, obj):
-        return obj.user.profile.name
 
     def get_replies(self, obj):
         queryset = obj.replies.select_related("user", "user__profile")
@@ -192,7 +165,7 @@ class CommentSerializer(serializers.ModelSerializer):
 
 
 class ListCommentSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField(read_only=True)
+    user = serializers.CharField(source="user.profile.name", read_only=True)
     parent = serializers.PrimaryKeyRelatedField(read_only=True)
     replies = serializers.SerializerMethodField(read_only=True)
 
@@ -207,9 +180,6 @@ class ListCommentSerializer(serializers.ModelSerializer):
             "replies",
             "created_at",
         ]
-
-    def get_user(self, obj):
-        return obj.user.profile.name
 
     def get_replies(self, obj):
         queryset = obj.replies.select_related("user", "user__profile")
