@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from django.db.models import Prefetch
 from django.contrib.auth import get_user_model
 from rest_framework import generics, filters
 from rest_framework.permissions import IsAuthenticated
@@ -21,6 +22,18 @@ from relationships.models import Follow
 User = get_user_model()
 
 
+def prefetch_top_level_comments(path: str = "comments"):
+    replies_qs = Comment.objects.select_related("user", "user__profile")
+
+    top_level_comments_qs = (
+        Comment.objects.filter(parent=None)
+        .select_related("user", "user__profile")
+        .prefetch_related(Prefetch("replies", queryset=replies_qs))
+    )
+
+    return Prefetch(path, queryset=top_level_comments_qs)
+
+
 class ListCreateTweetAPIView(generics.ListCreateAPIView):
     serializer_class = CreateTweetSerializer
     permission_classes = [IsAuthenticated]
@@ -40,9 +53,13 @@ class ListCreateTweetAPIView(generics.ListCreateAPIView):
             "following", flat=True
         )
         followings_ids = list(followings) + [self.request.user.id]
-        tweets = Tweet.objects.filter(user_id__in=followings_ids).order_by(
-            "-created_at"
+        tweets = (
+            Tweet.objects.filter(user_id__in=followings_ids)
+            .select_related("user", "user__profile")
+            .prefetch_related(prefetch_top_level_comments())
+            .order_by("-created_at")
         )
+
         return tweets
 
 
@@ -60,12 +77,12 @@ class UserPostsAPIView(generics.ListAPIView):
         tweets = (
             Tweet.objects.filter(user=user)
             .select_related("user", "user__profile")
-            .prefetch_related("comments")
+            .prefetch_related(prefetch_top_level_comments())
         )
         retweets = (
             Retweet.objects.filter(user=user)
             .select_related("user", "user__profile", "tweet")
-            .prefetch_related("tweet__comments")
+            .prefetch_related(prefetch_top_level_comments("tweet__comments"))
         )
         from itertools import chain
         from operator import attrgetter
@@ -80,9 +97,15 @@ class UserPostsAPIView(generics.ListAPIView):
 
 
 class RetrieveDeleteTweetAPIView(generics.RetrieveDestroyAPIView):
-    queryset = Tweet.objects.all()
     serializer_class = RetrieveTweetSerializer
     permission_classes = [IsAuthenticated, IsAuthorOrReadOnly]
+
+    def get_queryset(self):
+        return (
+            Tweet.objects.all()
+            .select_related("user", "user__profile")
+            .prefetch_related(prefetch_top_level_comments())
+        )
 
 
 class RetweetAPIView(generics.CreateAPIView):
@@ -105,7 +128,13 @@ class ListRetweetsAPIView(generics.ListAPIView):
         return get_object_or_404(Tweet, pk=self.kwargs["pk"])
 
     def get_queryset(self):
-        return Retweet.objects.filter(tweet=self.get_tweet()).all()
+        return (
+            Retweet.objects.filter(tweet=self.get_tweet())
+            .select_related(
+                "user", "user__profile", "tweet", "tweet__user", "tweet__user__profile"
+            )
+            .prefetch_related(prefetch_top_level_comments("tweet__comments"))
+        )
 
 
 class LikeTweetAPIView(generics.CreateAPIView):
@@ -172,9 +201,10 @@ class ListCommentAPIView(generics.ListAPIView):
         return get_object_or_404(Tweet, pk=self.kwargs["pk"])
 
     def get_queryset(self):
+        replies = Comment.objects.select_related("user", "user__profile")
         return (
             self.get_tweet()
             .comments.filter(parent=None)
             .select_related("user", "user__profile", "parent")
-            .prefetch_related("replies")
+            .prefetch_related(Prefetch("replies", queryset=replies))
         )

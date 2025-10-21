@@ -11,11 +11,7 @@ class CreateTweetSerializer(serializers.ModelSerializer):
         fields = ["user", "content", "likes_count", "image", "comments"]
 
     def get_comments(self, obj):
-        queryset = (
-            obj.comments.select_related("user", "user__profile")
-            .filter(parent=None)
-            .all()
-        )
+        queryset = obj.comments.all()
         return CommentSerializer(queryset, many=True).data
 
 
@@ -39,11 +35,7 @@ class RetrieveTweetSerializer(serializers.ModelSerializer):
         fields = ["user", "content", "image", "likes_count", "comments", "created_at"]
 
     def get_comments(self, obj):
-        queryset = (
-            obj.comments.select_related("user", "user__profile")
-            .filter(parent=None)
-            .all()
-        )
+        queryset = obj.comments.all()
         return CommentSerializer(queryset, many=True).data
 
 
@@ -160,7 +152,7 @@ class CommentSerializer(serializers.ModelSerializer):
         ]
 
     def get_replies(self, obj):
-        queryset = obj.replies.select_related("user", "user__profile")
+        queryset = obj.replies.all()
         return CommentSerializer(queryset, many=True).data
 
 
@@ -182,5 +174,5 @@ class ListCommentSerializer(serializers.ModelSerializer):
         ]
 
     def get_replies(self, obj):
-        queryset = obj.replies.select_related("user", "user__profile")
+        queryset = obj.replies.all()
         return CommentSerializer(queryset, many=True).data
