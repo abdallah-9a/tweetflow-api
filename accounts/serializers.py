@@ -125,18 +125,10 @@ class ChangePasswordSerializer(serializers.ModelSerializer):
 
 
 class SendPasswordRestEmailSerializer(serializers.Serializer):
-    email = serializers.EmailField(max_length=255)
+    email = serializers.CharField(max_length=255)
 
     class Meta:
         fields = ["email"]
-
-    def validate(self, attrs):
-        email = attrs.get("email")
-
-        if not User.objects.filter(email=email).exists():
-            raise serializers.ValidationError("You are not Registered with us")
-
-        return attrs
 
 
 class UserPasswordResetSerializer(serializers.Serializer):
@@ -179,7 +171,7 @@ class UserPasswordResetSerializer(serializers.Serializer):
         user = getattr(self, "user", None)
         user.set_password(self.validated_data["password"])
         user.save()
-        
+
         return user
 
 

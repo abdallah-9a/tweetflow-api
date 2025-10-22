@@ -26,7 +26,7 @@ class SendResetEmailAPITestCase(APITestCase):
     def test_request_password_reset_with_invalid_email_field(self):
         email = {"email": "invalid-email"}
         response = self.client.post(self.url, email)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
 class ResetPasswordAPITestCase(APITestCase):

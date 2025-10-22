@@ -1,4 +1,3 @@
-from django.shortcuts import render
 from django.db.models import Count
 from django.contrib.auth import authenticate
 from django.utils.http import urlsafe_base64_encode
@@ -118,21 +117,27 @@ class SendPasswordResetEmailView(APIView):
         serializer.is_valid(raise_exception=True)
 
         email = request.data.get("email")
-        user = User.objects.get(email=email)
+        user = User.objects.filter(email=email).first()
+        if user:
+            uid = urlsafe_base64_encode(force_bytes(user.id))
+            token = PasswordResetTokenGenerator().make_token(user)
 
-        uid = urlsafe_base64_encode(force_bytes(user.id))
-        token = PasswordResetTokenGenerator().make_token(user)
+            url = reverse("reset-password", kwargs={"uid": uid, "token": token})
+            link = request.build_absolute_uri(url)
 
-        link = reverse("reset-password", kwargs={"uid": uid, "token": token})
+            # Send Email
 
-        # Send Email
+            body = f"Click following this link to reset your password ---> {link}"
+            data = {
+                "subject": "reset your password",
+                "body": body,
+                "to_email": user.email,
+            }
+            Util.send_email(data)
 
-        body = f"Click following this link to reset your password ---> {link}"
-        data = {"subject": "reset your password", "body": body, "to_email": user.email}
-        Util.send_email(data)
-
+        # Always return 200
         return Response(
-            {"msg": "Password Reset link send. Please check your Email"},
+            {"msg": "If the email is registered, a reset link has been sent."},
             status=status.HTTP_200_OK,
         )
 
