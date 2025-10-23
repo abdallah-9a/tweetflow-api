@@ -11,7 +11,7 @@ class CreateTweetSerializer(serializers.ModelSerializer):
         fields = ["user", "content", "likes_count", "image", "comments"]
 
     def get_comments(self, obj):
-        queryset = obj.comments.all()
+        queryset = obj.comments.filter(parent=None)
         return CommentSerializer(queryset, many=True).data
 
 
@@ -35,7 +35,7 @@ class RetrieveTweetSerializer(serializers.ModelSerializer):
         fields = ["user", "content", "image", "likes_count", "comments", "created_at"]
 
     def get_comments(self, obj):
-        queryset = obj.comments.all()
+        queryset = obj.comments.filter(parent=None)
         return CommentSerializer(queryset, many=True).data
 
 
