@@ -31,7 +31,7 @@ class TestListFollowers(APITestCase):
         self.authenticate_user1()
         response = self.client.get(self.url_user1_followers)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['count'], 2)
+        self.assertEqual(len(response.data['results'][0]['followers']), 2)
 
     def test_list_followers_not_found_user(self):
         self.authenticate_user1()

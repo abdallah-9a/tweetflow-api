@@ -7,18 +7,12 @@ User = get_user_model()
 
 
 class FollowUserSerializer(serializers.ModelSerializer):
-    follower = serializers.SerializerMethodField(read_only=True)
-    following = serializers.SerializerMethodField(read_only=True)
+    follower = serializers.CharField(source="follower.profile.name", read_only=True)
+    following = serializers.CharField(source="following.profile.name", read_only=True)
 
     class Meta:
         model = Follow
         fields = ["follower", "following"]
-
-    def get_follower(self, obj):
-        return obj.follower.profile.name
-
-    def get_following(self, obj):
-        return obj.following.profile.name
 
     def validate(self, attrs):
         follower = self.context.get("follower")
@@ -41,18 +35,12 @@ class FollowUserSerializer(serializers.ModelSerializer):
 
 
 class UnFollowUserSerializer(serializers.ModelSerializer):
-    follower = serializers.SerializerMethodField(read_only=True)
-    following = serializers.SerializerMethodField(read_only=True)
+    follower = serializers.CharField(source="follower.profile.name", read_only=True)
+    following = serializers.CharField(source="following.profile.name", read_only=True)
 
     class Meta:
         model = Follow
         fields = ["follower", "following"]
-
-    def get_follower(self, obj):
-        return obj.follower.profile.name
-
-    def get_following(self, obj):
-        return obj.following.profile.name
 
     def validate(self, attrs):
         follower = self.context.get("follower")

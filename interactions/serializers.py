@@ -3,7 +3,7 @@ from .models import Mention
 
 
 class ListUserMentionsSerializer(serializers.ModelSerializer):
-    actor = serializers.SerializerMethodField(read_only=True)
+    actor = serializers.CharField(source="actor.username", read_only=True)
     content_object = serializers.SerializerMethodField(read_only=True)
     content_preview = serializers.SerializerMethodField(read_only=True)
 
@@ -16,9 +16,6 @@ class ListUserMentionsSerializer(serializers.ModelSerializer):
             "content_id",
             "created_at",
         ]
-
-    def get_actor(self, obj):
-        return obj.actor.username
 
     def get_content_object(self, obj):
         return obj.content_type.model
