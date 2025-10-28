@@ -42,11 +42,15 @@ class Notification(models.Model):
         ("mentioned", "Mentioned"),
         ("retweeted", "Retweeted"),
         ("liked", "Liked"),
+        # System notification
+        ("welcome", "Welcome"),
     ]
     sender = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="sent_notifications",
+        null=True,
+        blank=True,
     )
     receiver = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -76,5 +80,6 @@ class Notification(models.Model):
             "retweeted": f"{self.sender} retweeted {self.receiver}'s {self.content_type.model}",
             "commented": f"{self.sender} commented on {self.receiver}'s {self.content_type.model}",
             "mentioned": f"{self.sender} mentioned {self.receiver} in a {self.content_type.model}",
+            "welcome": f"{self.receiver} has registered",
         }
         return templates.get(self.verb, "")
