@@ -7,4 +7,4 @@ from interactions.utils import create_notification
 @receiver(post_save, sender=Profile)
 def on_registration(sender, instance, created, **kwargs):
     if created:
-        create_notification(receiver=instance.user, verb="welcome", target=instance)
+        create_notification(receiver=instance.user, verb="welcome")

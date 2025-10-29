@@ -5,6 +5,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.urls import reverse
 from .models import User, Profile
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
+from interactions.utils import create_notification
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -122,6 +123,10 @@ class ChangePasswordSerializer(serializers.ModelSerializer):
         user = self.context["user"]
         user.set_password(self.validated_data["password"])
         user.save()
+        
+        create_notification(receiver=user, verb="changed")
+
+        return user
 
 
 class SendPasswordRestEmailSerializer(serializers.Serializer):
@@ -171,6 +176,7 @@ class UserPasswordResetSerializer(serializers.Serializer):
         user = getattr(self, "user", None)
         user.set_password(self.validated_data["password"])
         user.save()
+        create_notification(receiver=user, verb="reset-password")
 
         return user
 

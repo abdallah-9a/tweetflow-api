@@ -44,6 +44,8 @@ class Notification(models.Model):
         ("liked", "Liked"),
         # System notification
         ("welcome", "Welcome"),
+        ("reset", "Reset"),
+        ("changed", "Changed"),
     ]
     sender = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -75,11 +77,14 @@ class Notification(models.Model):
 
     def __str__(self):
         templates = {
-            "followed": f"{self.sender} followed {self.receiver}",
-            "liked": f"{self.sender} liked {self.receiver}'s {self.content_type.model}",
-            "retweeted": f"{self.sender} retweeted {self.receiver}'s {self.content_type.model}",
-            "commented": f"{self.sender} commented on {self.receiver}'s {self.content_type.model}",
-            "mentioned": f"{self.sender} mentioned {self.receiver} in a {self.content_type.model}",
-            "welcome": f"{self.receiver} has registered",
+            "followed": lambda: f"{self.sender} followed {self.receiver}",
+            "liked": lambda: f"{self.sender} liked {self.receiver}'s {self.content_type.model}",
+            "retweeted": lambda: f"{self.sender} retweeted {self.receiver}'s {self.content_type.model}",
+            "commented": lambda: f"{self.sender} commented on {self.receiver}'s {self.content_type.model}",
+            "mentioned": lambda: f"{self.sender} mentioned {self.receiver} in a {self.content_type.model}",
+            "welcome": lambda: f"{self.receiver} has registered",
+            "changed": lambda: f"{self.receiver}'s password has changed",
+            "reset": lambda: f"{self.receiver}'s password has reset",
         }
-        return templates.get(self.verb, "")
+
+        return templates.get(self.verb, lambda: "")()
