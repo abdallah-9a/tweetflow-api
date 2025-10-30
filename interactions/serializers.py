@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Mention
+from .models import Mention, Notification
 
 
 class ListUserMentionsSerializer(serializers.ModelSerializer):
@@ -28,3 +28,31 @@ class ListUserMentionsSerializer(serializers.ModelSerializer):
             return obj.content_object.quote[:20]
 
         return
+
+
+class ListNotificationsSerializer(serializers.ModelSerializer):
+    sender = serializers.SerializerMethodField(read_only=True)
+    content = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Notification
+        fields = ["id", "sender", "content", "is_read", "created_at"]
+
+    def get_sender(self, obj):
+        if obj.sender:
+            return obj.sender.profile.name
+
+        return "System"
+
+    def get_content(self, obj):
+        templates = {
+            "followed": lambda: f"{obj.sender} followed you",
+            "liked": lambda: f"{obj.sender} liked your {obj.content_type.model}",
+            "retweeted": lambda: f"{obj.sender} retweeted your {obj.content_type.model}",
+            "commented": lambda: f"{obj.sender} commented on your {obj.content_type.model}",
+            "mentioned": lambda: f"{obj.sender} mentioned you in a {obj.content_type.model}",
+            "welcome": lambda: "Welcome to Twitter 🎉",
+            "changed": lambda: "your password has changed",
+            "reset": lambda: "your password has reset",
+        }
+        return templates.get(obj.verb, lambda: "")()

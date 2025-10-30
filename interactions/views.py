@@ -1,8 +1,8 @@
 from django.shortcuts import render
 from rest_framework import generics, filters
 from rest_framework.permissions import IsAuthenticated
-from .models import Mention
-from .serializers import ListUserMentionsSerializer
+from .models import Mention, Notification
+from .serializers import ListUserMentionsSerializer, ListNotificationsSerializer
 
 # Create your views here.
 
@@ -19,3 +19,11 @@ class ListUserMentionsAPIView(generics.ListAPIView):
             .select_related("actor", "content_type")
             .order_by("-created_at")
         )
+
+
+class ListNotificationAPIView(generics.ListAPIView):
+    serializer_class = ListNotificationsSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(receiver=self.request.user)
