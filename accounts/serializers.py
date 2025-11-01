@@ -123,7 +123,7 @@ class ChangePasswordSerializer(serializers.ModelSerializer):
         user = self.context["user"]
         user.set_password(self.validated_data["password"])
         user.save()
-        
+
         create_notification(receiver=user, verb="changed")
 
         return user
@@ -176,7 +176,7 @@ class UserPasswordResetSerializer(serializers.Serializer):
         user = getattr(self, "user", None)
         user.set_password(self.validated_data["password"])
         user.save()
-        create_notification(receiver=user, verb="reset-password")
+        create_notification(receiver=user, verb="reset")
 
         return user
 
@@ -246,3 +246,9 @@ class ListUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "username", "email"]
+
+
+class DeactivateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["username", "password"]

@@ -1,5 +1,5 @@
 from django.db.models import Count
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, logout
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
@@ -19,7 +19,9 @@ from .serializers import (
     ChangePasswordSerializer,
     SendPasswordRestEmailSerializer,
     UserPasswordResetSerializer,
+    DeactivateSerializer,
 )
+from .permissions import IsActiveUser
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
 from rest_framework import generics
@@ -63,6 +65,11 @@ class UserLoginView(APIView):
                 {"errors": {"non_field_errors": ["Username or Password is not Valid"]}},
                 status=status.HTTP_404_NOT_FOUND,
             )
+        if user.profile.status == "deactive":
+            return Response(
+                {"error": "This user is Deactivated"}, status=status.HTTP_403_FORBIDDEN
+            )
+
         token = get_tokens_for_user(user)
         return Response(
             {"token": token, "msg": "Login Success"}, status=status.HTTP_200_OK
@@ -183,4 +190,32 @@ class UserRetrieveView(generics.RetrieveAPIView):
                 followers_count=Count("followers", distinct=True),
                 following_count=Count("following", distinct=True),
             )
+        )
+
+
+class DeactivateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = DeactivateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        username = serializer.validated_data.get("username")
+        password = serializer.validated_data.get("password")
+
+        user = authenticate(username=username, password=password)
+
+        if not user or user != request.user:
+            return Response(
+                {"error": "Username or Password is not Valid"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        profile = user.profile
+        profile.status = "deactive"
+        profile.save()
+        logout(request)
+
+        return Response(
+            {"message": "Your account has been deactivated"}, status=status.HTTP_200_OK
         )
