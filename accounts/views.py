@@ -19,6 +19,7 @@ from .serializers import (
     ChangePasswordSerializer,
     SendPasswordRestEmailSerializer,
     UserPasswordResetSerializer,
+    ActivateSerializer,
     DeactivateSerializer,
 )
 from .permissions import IsActiveUser
@@ -218,4 +219,33 @@ class DeactivateAPIView(APIView):
 
         return Response(
             {"message": "Your account has been deactivated"}, status=status.HTTP_200_OK
+        )
+
+
+class ActivateAPIView(APIView):
+    def post(self, request):
+        serializer = ActivateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        username = serializer.validated_data.get("username")
+        password = serializer.validated_data.get("password")
+
+        user = authenticate(username=username, password=password)
+
+        if not user:
+            return Response(
+                {"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        if user.profile.status == "active":
+            return Response(
+                {"message": "Account already active"}, status=status.HTTP_200_OK
+            )
+
+        user.profile.status = "active"
+        user.profile.save()
+
+        return Response(
+            {"message": "Your account has been successfully reactivated"},
+            status=status.HTTP_200_OK,
         )

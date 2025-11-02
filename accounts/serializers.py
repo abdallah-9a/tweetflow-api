@@ -252,3 +252,9 @@ class DeactivateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["username", "password"]
+
+
+class ActivateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["username", "password"]
