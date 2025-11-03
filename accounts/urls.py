@@ -12,6 +12,7 @@ from .views import (
     UserPasswordResetView,
     ActivateAPIView,
     DeactivateAPIView,
+    DeleteAccountAPIView,
 )
 
 urlpatterns = [
@@ -35,4 +36,5 @@ urlpatterns = [
     ),
     path("deactivate/", DeactivateAPIView.as_view(), name="deactivate"),
     path("activate/", ActivateAPIView.as_view(), name="activate"),
+    path("delete/", DeleteAccountAPIView.as_view(), name="delete-account"),
 ]

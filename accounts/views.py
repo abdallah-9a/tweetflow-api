@@ -21,6 +21,7 @@ from .serializers import (
     UserPasswordResetSerializer,
     ActivateSerializer,
     DeactivateSerializer,
+    PasswordCheckSerializer,
 )
 from .permissions import IsActiveUser
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -248,4 +249,20 @@ class ActivateAPIView(APIView):
         return Response(
             {"message": "Your account has been successfully reactivated"},
             status=status.HTTP_200_OK,
+        )
+
+
+class DeleteAccountAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        serializer = PasswordCheckSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if not request.user.check_password(serializer.validated_data["password"]):
+            return Response({"error": "Invalid password"}, status=401)
+
+        request.user.delete()
+        return Response(
+            {"message": "Your account has been permanently deleted"}, status=204
         )
