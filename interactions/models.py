@@ -46,6 +46,8 @@ class Notification(models.Model):
         ("welcome", "Welcome"),
         ("reset", "Reset"),
         ("changed", "Changed"),
+        ("deactivated", "Deactivated"),
+        ("reactivated", "Reactivated"),
     ]
     sender = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -66,7 +68,7 @@ class Notification(models.Model):
     content_id = models.PositiveIntegerField(null=True, blank=True)
     target = GenericForeignKey("content_type", "content_id")
 
-    verb = models.CharField(choices=VERB_CHOICES, max_length=10)
+    verb = models.CharField(choices=VERB_CHOICES, max_length=15)
     is_read = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -85,6 +87,8 @@ class Notification(models.Model):
             "welcome": lambda: f"{self.receiver} has registered",
             "changed": lambda: f"{self.receiver}'s password has changed",
             "reset": lambda: f"{self.receiver}'s password has reset",
+            "deactivated": lambda: f"{self.receiver}'s account was deactivated",
+            "reactivated": lambda: f"{self.receiver}'s account was reactivated",
         }
 
         return templates.get(self.verb, lambda: "")()

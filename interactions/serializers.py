@@ -54,5 +54,7 @@ class ListNotificationsSerializer(serializers.ModelSerializer):
             "welcome": lambda: "Welcome to Twitter 🎉",
             "changed": lambda: "your password has changed",
             "reset": lambda: "your password has reset",
+            "deactivated": lambda: "your account was deactivated",
+            "reactivated": lambda: "your account was reactivated",
         }
         return templates.get(obj.verb, lambda: "")()

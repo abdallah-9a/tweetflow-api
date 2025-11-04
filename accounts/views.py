@@ -8,6 +8,7 @@ from .models import User
 from .utils import Util
 from rest_framework import status, filters
 from rest_framework.response import Response
+from interactions.utils import create_notification
 from .serializers import (
     UserRegistrationSerializer,
     UserLoginSerializer,
@@ -20,7 +21,6 @@ from .serializers import (
     SendPasswordRestEmailSerializer,
     UserPasswordResetSerializer,
     ActivateSerializer,
-    DeactivateSerializer,
     PasswordCheckSerializer,
 )
 from .permissions import IsActiveUser
@@ -199,41 +199,58 @@ class DeactivateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        serializer = DeactivateSerializer(data=request.data)
+        serializer = PasswordCheckSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        username = serializer.validated_data.get("username")
         password = serializer.validated_data.get("password")
 
-        user = authenticate(username=username, password=password)
-
-        if not user or user != request.user:
+        if not request.user.check_password(password):
             return Response(
-                {"error": "Username or Password is not Valid"},
-                status=status.HTTP_404_NOT_FOUND,
+                {"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
             )
 
-        profile = user.profile
+        if request.user.profile.status == "deactive":
+            return Response(
+                {"msg": "Account already deactivated"}, status=status.HTTP_200_OK
+            )
+
+        profile = request.user.profile
         profile.status = "deactive"
         profile.save()
-        logout(request)
 
+        Util.send_email(
+            {
+                "subject": "Your account was deactivated",
+                "body": "If this wasn't you, please contact support immediately",
+                "to_email": request.user.email,
+            }
+        )
+        create_notification(receiver=request.user, verb="deactivated")
+
+        logout(request)
         return Response(
             {"message": "Your account has been deactivated"}, status=status.HTTP_200_OK
         )
 
 
 class ActivateAPIView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
     def post(self, request):
         serializer = ActivateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         username = serializer.validated_data.get("username")
         password = serializer.validated_data.get("password")
+        try:
+            user = User.objects.select_related("profile").get(username=username)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
+            )
 
-        user = authenticate(username=username, password=password)
-
-        if not user:
+        if not user.check_password(password):
             return Response(
                 {"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
             )
@@ -246,6 +263,14 @@ class ActivateAPIView(APIView):
         user.profile.status = "active"
         user.profile.save()
 
+        Util.send_email(
+            {
+                "subject": "Your account was reactivated",
+                "body": "If this wasn't you, please contact support immediately",
+                "to_email": user.email,
+            }
+        )
+        create_notification(receiver=user, verb="reactivated")
         return Response(
             {"message": "Your account has been successfully reactivated"},
             status=status.HTTP_200_OK,

@@ -248,16 +248,9 @@ class ListUserSerializer(serializers.ModelSerializer):
         fields = ["id", "username", "email"]
 
 
-class DeactivateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ["username", "password"]
-
-
-class ActivateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ["username", "password"]
+class ActivateSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField(write_only=True, style={"input_type": "password"})
 
 
 class PasswordCheckSerializer(serializers.Serializer):
