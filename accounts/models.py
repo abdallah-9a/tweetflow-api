@@ -11,6 +11,8 @@ class User(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    is_active = models.BooleanField(default=True)
+    
     REQUIRED_FIELDS = ["email"]
 
     def save(self, *args, **kwargs):

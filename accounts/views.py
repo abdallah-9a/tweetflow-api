@@ -67,7 +67,7 @@ class UserLoginView(APIView):
                 {"errors": {"non_field_errors": ["Username or Password is not Valid"]}},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        if user.profile.status == "deactive":
+        if not user.is_active:
             return Response(
                 {"error": "This user is Deactivated"}, status=status.HTTP_403_FORBIDDEN
             )
@@ -216,6 +216,8 @@ class DeactivateAPIView(APIView):
 
         profile = request.user.profile
         profile.status = "deactive"
+        request.user.is_active = False
+        request.user.save()
         profile.save()
 
         Util.send_email(
@@ -261,6 +263,8 @@ class ActivateAPIView(APIView):
             )
 
         user.profile.status = "active"
+        user.is_active = True
+        user.save()
         user.profile.save()
 
         Util.send_email(
