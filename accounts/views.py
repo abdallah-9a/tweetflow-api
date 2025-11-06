@@ -46,7 +46,7 @@ class UserRegistrationView(APIView):
         user = serializer.save()
         token = get_tokens_for_user(user)
         return Response(
-            {"token": token, "msg": "Registration successful"},
+            {"token": token, "detail": "Registration successful"},
             status=status.HTTP_201_CREATED,
         )
 
@@ -64,17 +64,17 @@ class UserLoginView(APIView):
 
         if user is None:
             return Response(
-                {"errors": {"non_field_errors": ["Username or Password is not Valid"]}},
-                status=status.HTTP_404_NOT_FOUND,
+                {"detail": "Invalid credentials"},
+                status=status.HTTP_401_UNAUTHORIZED,
             )
         if not user.is_active:
             return Response(
-                {"error": "This user is Deactivated"}, status=status.HTTP_403_FORBIDDEN
+                {"detail": "This user is Deactivated"}, status=status.HTTP_403_FORBIDDEN
             )
 
         token = get_tokens_for_user(user)
         return Response(
-            {"token": token, "msg": "Login Success"}, status=status.HTTP_200_OK
+            {"token": token, "detail": "Login Success"}, status=status.HTTP_200_OK
         )
 
 
@@ -87,7 +87,7 @@ class UserLogoutView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        return Response({"msg": "Logout Successful"}, status=status.HTTP_200_OK)
+        return Response({"detail": "Logout Successful"}, status=status.HTTP_200_OK)
 
 
 class UserProfileView(APIView):
@@ -116,7 +116,7 @@ class ChangePasswordView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(
-            {"msg": "Password changed successfully"}, status=status.HTTP_200_OK
+            {"detail": "Password changed successfully"}, status=status.HTTP_200_OK
         )
 
 
@@ -147,7 +147,7 @@ class SendPasswordResetEmailView(APIView):
 
         # Always return 200
         return Response(
-            {"msg": "If the email is registered, a reset link has been sent."},
+            {"detail": "If the email is registered, a reset link has been sent."},
             status=status.HTTP_200_OK,
         )
 
@@ -162,7 +162,7 @@ class UserPasswordResetView(APIView):
         serializer.save()
 
         return Response(
-            {"msg": "Password reset successfully"}, status=status.HTTP_200_OK
+            {"detail": "Password reset successfully"}, status=status.HTTP_200_OK
         )
 
 
@@ -206,12 +206,12 @@ class DeactivateAPIView(APIView):
 
         if not request.user.check_password(password):
             return Response(
-                {"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
+                {"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST
             )
 
         if request.user.profile.status == "deactive":
             return Response(
-                {"msg": "Account already deactivated"}, status=status.HTTP_200_OK
+                {"detail": "Account already deactivated"}, status=status.HTTP_200_OK
             )
 
         profile = request.user.profile
@@ -231,7 +231,7 @@ class DeactivateAPIView(APIView):
 
         logout(request)
         return Response(
-            {"message": "Your account has been deactivated"}, status=status.HTTP_200_OK
+            {"detail": "Your account has been deactivated"}, status=status.HTTP_200_OK
         )
 
 
@@ -259,7 +259,7 @@ class ActivateAPIView(APIView):
 
         if user.profile.status == "active":
             return Response(
-                {"message": "Account already active"}, status=status.HTTP_200_OK
+                {"detail": "Account already active"}, status=status.HTTP_200_OK
             )
 
         user.profile.status = "active"
@@ -276,7 +276,7 @@ class ActivateAPIView(APIView):
         )
         create_notification(receiver=user, verb="reactivated")
         return Response(
-            {"message": "Your account has been successfully reactivated"},
+            {"detail": "Your account has been successfully reactivated"},
             status=status.HTTP_200_OK,
         )
 
@@ -289,9 +289,12 @@ class DeleteAccountAPIView(APIView):
         serializer.is_valid(raise_exception=True)
 
         if not request.user.check_password(serializer.validated_data["password"]):
-            return Response({"error": "Invalid password"}, status=401)
+            return Response(
+                {"detail": "Invalid password"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         request.user.delete()
         return Response(
-            {"message": "Your account has been permanently deleted"}, status=204
+            {"detail": "Your account has been permanently deleted"},
+            status=status.HTTP_200_OK,
         )
