@@ -54,61 +54,19 @@ class UnFollowUserSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class ListFollowersSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField(read_only=True)
-    followers = serializers.SerializerMethodField(read_only=True)
+class FollowerUserSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source="profile.name")
+    profile_image = serializers.ImageField(source="profile.profile_image")
 
     class Meta:
         model = User
-        fields = ["user", "followers"]
-
-    def get_user(self, obj):
-        return obj.profile.name
-
-    def get_followers(self, obj):
-        request = self.context.get("request")
-        search = None
-
-        if request:
-            search = request.query_params.get("search")
-
-        qs = obj.followers.select_related("follower", "follower__profile")
-
-        if search:
-
-            followers = qs.filter(
-                Q(follower__profile__name__icontains=search)
-                | Q(follower__username__icontains=search)
-            )
-            return [(f.follower.profile.name) for f in followers]
-
-        return [(f.follower.profile.name) for f in qs]
+        fields = ["id", "username", "name", "profile_image"]
 
 
-class ListFollowingSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField(read_only=True)
-    following = serializers.SerializerMethodField(read_only=True)
+class FollowingUserSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source="profile.name")
+    profile_image = serializers.ImageField(source="profile.profile_image")
 
     class Meta:
         model = User
-        fields = ["user", "following"]
-
-    def get_user(self, obj):
-        return obj.profile.name
-
-    def get_following(self, obj):
-        request = self.context.get("request")
-        search = None
-        if request:
-            search = request.query_params.get("search")
-
-        qs = obj.following.select_related("following", "following__profile")
-
-        if search:
-            following = qs.filter(
-                Q(following__profile__name__icontains=search)
-                | Q(following__username__icontains=search)
-            )
-            return [f.following.profile.name for f in following]
-
-        return [f.following.profile.name for f in qs]
+        fields = ["id", "username", "name", "profile_image"]

@@ -16,8 +16,12 @@ class TestUnfollow(APITestCase):
             username="user2", email="user2@test.com", password="test1234"
         )
 
-        self.follow_url_user2 = reverse("follow", kwargs={"pk": self.user2.pk})
-        self.unfollow_url_user2 = reverse("unfollow", kwargs={"pk": self.user2.pk})
+        self.follow_url_user2 = reverse(
+            "follow", kwargs={"username": self.user2.username}
+        )
+        self.unfollow_url_user2 = reverse(
+            "unfollow", kwargs={"username": self.user2.username}
+        )
 
     def authenticate_user1(self):
         self.client.force_authenticate(user=self.user1)
@@ -45,7 +49,7 @@ class TestUnfollow(APITestCase):
 
     def test_unfollow_not_found_user(self):
         self.authenticate_user1()
-        url = reverse("unfollow", kwargs={"pk": 999999})
+        url = reverse("unfollow", kwargs={"username": "nonexistent_user"})
 
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

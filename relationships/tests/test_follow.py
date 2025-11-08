@@ -16,7 +16,9 @@ class TestFollow(APITestCase):
             username="user2", email="user2@test.com", password="test1234"
         )
 
-        self.follow_url_user2 = reverse("follow", kwargs={"pk": self.user2.pk})
+        self.follow_url_user2 = reverse(
+            "follow", kwargs={"username": self.user2.username}
+        )
 
     def authenticate_user1(self):
         self.client.force_authenticate(user=self.user1)
@@ -43,14 +45,14 @@ class TestFollow(APITestCase):
 
     def test_follow_unknown_user(self):
         self.authenticate_user1()
-        url = reverse("follow", kwargs={"pk": 999999})
+        url = reverse("follow", kwargs={"username": "nonexistent_user"})
 
         response = self.client.post(url)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_self_follow(self):
         self.client.force_authenticate(user=self.user1)
-        url = reverse("follow", kwargs={"pk": self.user1.pk})
+        url = reverse("follow", kwargs={"username": self.user1.username})
 
         response = self.client.post(url)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

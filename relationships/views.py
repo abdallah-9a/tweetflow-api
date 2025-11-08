@@ -5,8 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from .serializers import (
     FollowUserSerializer,
     UnFollowUserSerializer,
-    ListFollowersSerializer,
-    ListFollowingSerializer,
+    FollowerUserSerializer,
+    FollowingUserSerializer,
 )
 from .models import Follow
 
@@ -26,7 +26,7 @@ class FollowUserAPIView(generics.CreateAPIView):
         return context
 
     def get_following(self):
-        return get_object_or_404(User, pk=self.kwargs["pk"])
+        return get_object_or_404(User, username=self.kwargs["username"])
 
     def perform_create(self, serializer):
         serializer.save(follower=self.request.user, following=self.get_following())
@@ -38,7 +38,7 @@ class UnFollowUserAPIView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_following(self):
-        return get_object_or_404(User, pk=self.kwargs["pk"])
+        return get_object_or_404(User, username=self.kwargs["username"])
 
     def get_object(self):
         return get_object_or_404(
@@ -47,18 +47,32 @@ class UnFollowUserAPIView(generics.DestroyAPIView):
 
 
 class ListFollowersAPIView(generics.ListAPIView):
-    serializer_class = ListFollowersSerializer
+    serializer_class = FollowerUserSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["username", "profile__name"]
 
     def get_queryset(self):
-        user = get_object_or_404(User, pk=self.kwargs["pk"])
-        return User.objects.filter(pk=user.pk).select_related("profile")
+        user = get_object_or_404(User, username=self.kwargs["username"])
+
+        follower_ids = Follow.objects.filter(following=user).values_list(
+            "follower_id", flat=True
+        )
+
+        return User.objects.filter(id__in=follower_ids).select_related("profile")
 
 
 class ListFollowingAPIView(generics.ListAPIView):
-    serializer_class = ListFollowingSerializer
+    serializer_class = FollowingUserSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["username", "profile__name"]
 
     def get_queryset(self):
-        user = get_object_or_404(User, pk=self.kwargs["pk"])
-        return User.objects.filter(pk=user.pk).select_related("profile")
+        user = get_object_or_404(User, username=self.kwargs["username"])
+
+        following_ids = Follow.objects.filter(follower=user).values_list(
+            "following_id", flat=True
+        )
+
+        return User.objects.filter(id__in=following_ids).select_related("profile")
