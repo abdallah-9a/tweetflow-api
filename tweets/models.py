@@ -20,10 +20,6 @@ class Tweet(models.Model):
     def __str__(self):
         return f"{self.user.username}: {self.content[:20]}"
 
-    @property
-    def likes_count(self):
-        return self.likes.count()
-
 
 class Retweet(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="retweets")

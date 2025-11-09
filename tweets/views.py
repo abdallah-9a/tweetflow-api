@@ -1,5 +1,5 @@
 from django.shortcuts import get_object_or_404
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Count
 from django.contrib.auth import get_user_model
 from rest_framework import generics, filters
 from rest_framework.permissions import IsAuthenticated
@@ -57,6 +57,7 @@ class ListCreateTweetAPIView(generics.ListCreateAPIView):
             Tweet.objects.filter(user_id__in=followings_ids)
             .select_related("user", "user__profile")
             .prefetch_related(prefetch_top_level_comments())
+            .annotate(likes_count=Count("likes", distinct=True))
             .order_by("-created_at")
         )
 
@@ -67,30 +68,60 @@ class UserPostsAPIView(generics.ListAPIView):
     """
     API endpoint that returns a paginated list of a user's posts (tweets and retweets)
     sorted by creation date in descending order.
+
+    Returns rich nested data including:
+    - Author details (name, username, profile image)
+    - Engagement metrics (likes, comments counts)
+    - Current user interaction status (is_liked)
+    - Full original tweet for retweets
     """
 
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+
+        from django.db.models import Count, Exists, OuterRef, Q
+
         user = get_object_or_404(User, username=self.kwargs["username"])
+        current_user = self.request.user
+
         tweets = (
             Tweet.objects.filter(user=user)
             .select_related("user", "user__profile")
-            .prefetch_related(prefetch_top_level_comments())
+            .annotate(
+                likes_count=Count("likes", distinct=True),
+                comments_count=Count(
+                    "comments", filter=Q(comments__parent=None), distinct=True
+                ),
+                retweets_count=Count("retweets", distinct=True),
+                is_liked=Exists(
+                    Like.objects.filter(user=current_user, tweet=OuterRef("pk"))
+                ),
+                is_retweeted=Exists(
+                    Retweet.objects.filter(user=current_user, tweet=OuterRef("pk"))
+                ),
+            )
         )
+
         retweets = (
             Retweet.objects.filter(user=user)
-            .select_related("user", "user__profile", "tweet")
-            .prefetch_related(prefetch_top_level_comments("tweet__comments"))
+            .select_related(
+                "user", "user__profile", "tweet", "tweet__user", "tweet__user__profile"
+            )
+            .annotate(
+                tweet_likes_count=Count("tweet__likes", distinct=True),
+                tweet_comments_count=Count(
+                    "tweet__comments",
+                    filter=Q(tweet__comments__parent=None),
+                    distinct=True,
+                ),
+                tweet_retweets_count=Count("tweet__retweets", distinct=True),
+            )
         )
-        from itertools import chain
-        from operator import attrgetter
 
         posts = sorted(
-            chain(tweets, retweets),
-            key=attrgetter("created_at"),
-            reverse=True,
+            list(tweets) + list(retweets), key=lambda x: x.created_at, reverse=True
         )
 
         return posts
@@ -105,6 +136,7 @@ class RetrieveDeleteTweetAPIView(generics.RetrieveDestroyAPIView):
             Tweet.objects.all()
             .select_related("user", "user__profile")
             .prefetch_related(prefetch_top_level_comments())
+            .annotate(likes_count=Count("likes", distinct=True))
         )
 
 

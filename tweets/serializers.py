@@ -1,10 +1,14 @@
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from .models import Tweet, Like, Comment, Retweet
+
+User = get_user_model()
 
 
 class CreateTweetSerializer(serializers.ModelSerializer):
     user = serializers.CharField(source="user.profile.name", read_only=True)
     comments = serializers.SerializerMethodField(read_only=True)
+    likes_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Tweet
@@ -15,20 +19,91 @@ class CreateTweetSerializer(serializers.ModelSerializer):
         return CommentSerializer(queryset, many=True).data
 
 
+class AuthorSerializer(serializers.ModelSerializer):
+    """Serializer for author details in posts"""
+
+    name = serializers.CharField(source="profile.name", read_only=True)
+    profile_image = serializers.ImageField(
+        source="profile.profile_image", read_only=True
+    )
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "name", "profile_image"]
+
+
+class OriginalTweetSerializer(serializers.ModelSerializer):
+    """Serializer for original tweet in retweets (nested)"""
+
+    author = AuthorSerializer(source="user", read_only=True)
+    likes_count = serializers.IntegerField(read_only=True)
+    comments_count = serializers.IntegerField(read_only=True)
+    retweets_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Tweet
+        fields = [
+            "id",
+            "author",
+            "content",
+            "image",
+            "likes_count",
+            "comments_count",
+            "retweets_count",
+            "created_at",
+        ]
+
+
 class PostSerializer(serializers.Serializer):
-    type = serializers.CharField()
-    result = serializers.DictField()
+    """
+    Unified serializer for tweets and retweets feed.
+    Returns rich nested data matching modern social platform patterns.
+    """
 
     def to_representation(self, instance):
         if isinstance(instance, Tweet):
-            return {"type": "tweet", "result": RetrieveTweetSerializer(instance).data}
+            return {
+                "id": instance.id,
+                "type": "tweet",
+                "author": AuthorSerializer(instance.user).data,
+                "content": instance.content,
+                "image": instance.image.url if instance.image else None,
+                "likes_count": getattr(instance, "likes_count", 0),
+                "comments_count": getattr(instance, "comments_count", 0),
+                "retweets_count": getattr(instance, "retweets_count", 0),
+                "is_liked": getattr(instance, "is_liked", False),
+                "is_retweeted": getattr(instance, "is_retweeted", False),
+                "created_at": instance.created_at,
+            }
+
         elif isinstance(instance, Retweet):
-            return {"type": "retweet", "result": RetweetSerializer(instance).data}
+            original_tweet_data = {
+                "id": instance.tweet.id,
+                "author": AuthorSerializer(instance.tweet.user).data,
+                "content": instance.tweet.content,
+                "image": instance.tweet.image.url if instance.tweet.image else None,
+                "likes_count": getattr(instance, "tweet_likes_count", 0),
+                "comments_count": getattr(instance, "tweet_comments_count", 0),
+                "retweets_count": getattr(instance, "tweet_retweets_count", 0),
+                "created_at": instance.tweet.created_at,
+            }
+
+            return {
+                "id": instance.id,
+                "type": "retweet",
+                "author": AuthorSerializer(instance.user).data,
+                "quote": instance.quote,
+                "original_tweet": original_tweet_data,
+                "created_at": instance.created_at,
+            }
+
+        return {}
 
 
 class RetrieveTweetSerializer(serializers.ModelSerializer):
     user = serializers.CharField(source="user.profile.name", read_only=True)
     comments = serializers.SerializerMethodField(read_only=True)
+    likes_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Tweet
