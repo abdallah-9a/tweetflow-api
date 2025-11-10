@@ -6,17 +6,9 @@ User = get_user_model()
 
 
 class CreateTweetSerializer(serializers.ModelSerializer):
-    user = serializers.CharField(source="user.profile.name", read_only=True)
-    comments = serializers.SerializerMethodField(read_only=True)
-    likes_count = serializers.IntegerField(read_only=True)
-
     class Meta:
         model = Tweet
-        fields = ["user", "content", "likes_count", "image", "comments"]
-
-    def get_comments(self, obj):
-        queryset = obj.comments.filter(parent=None)
-        return CommentSerializer(queryset, many=True).data
+        fields = ["content", "image"]
 
 
 class AuthorSerializer(serializers.ModelSerializer):
@@ -52,6 +44,45 @@ class OriginalTweetSerializer(serializers.ModelSerializer):
             "retweets_count",
             "created_at",
         ]
+
+
+class FeedSerializer(serializers.Serializer):
+    def to_representation(self, instance):
+        if isinstance(instance, Tweet):
+            return {
+                "id": instance.id,
+                "type": "tweet",
+                "author": AuthorSerializer(instance.user).data,
+                "content": instance.content,
+                "image": instance.image.url if instance.image else None,
+                "likes_count": getattr(instance, "likes_count", 0),
+                "comments_count": getattr(instance, "comments_count", 0),
+                "retweets_count": getattr(instance, "retweets_count", 0),
+                "is_liked": getattr(instance, "is_liked", False),
+                "is_retweeted": getattr(instance, "is_retweeted", False),
+                "created_at": instance.created_at,
+            }
+
+        else:
+            original_tweet = {
+                "id": instance.tweet.id,
+                "author": AuthorSerializer(instance.tweet.user).data,
+                "content": instance.tweet.content,
+                "image": instance.tweet.image.url if instance.tweet.image else None,
+                "likes_count": getattr(instance, "tweet_likes_count", 0),
+                "comments_count": getattr(instance, "tweet_comments_count", 0),
+                "retweets_count": getattr(instance, "tweet_retweets_count", 0),
+                "created_at": instance.tweet.created_at,
+            }
+
+            return {
+                "id": instance.id,
+                "type": "retweet",
+                "author": AuthorSerializer(instance.user).data,
+                "quote": instance.quote,
+                "original_tweet": original_tweet,
+                "created_at": instance.created_at,
+            }
 
 
 class PostSerializer(serializers.Serializer):

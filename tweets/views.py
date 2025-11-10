@@ -5,6 +5,7 @@ from rest_framework import generics, filters
 from rest_framework.permissions import IsAuthenticated
 from .serializers import (
     CreateTweetSerializer,
+    FeedSerializer,
     RetrieveTweetSerializer,
     RetweetSerializer,
     ListLikesSerializer,
@@ -34,34 +35,70 @@ def prefetch_top_level_comments(path: str = "comments"):
     return Prefetch(path, queryset=top_level_comments_qs)
 
 
-class ListCreateTweetAPIView(generics.ListCreateAPIView):
+class CreateTweetAPIView(generics.CreateAPIView):
+    queryset = Tweet.objects.all()
     serializer_class = CreateTweetSerializer
     permission_classes = [IsAuthenticated]
-    filter_backends = [filters.SearchFilter]
-    search_fields = ["user__profile__name", "content"]
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+
+class FeedAPIView(generics.ListAPIView):
+    """
+    API endpoint that returns a personalized feed of tweets and retweets from followed users
+    and the current user, sorted by creation date in descending order.
+    """
+
+    serializer_class = FeedSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["user__username", "user__profile__name", "content"]
+
     def get_queryset(self):
-        """
-        Returns a queryset of tweets for the user's feed, including tweets from users
-        that the current user follows as well as their own tweets. The tweets are
-        ordered by creation date in descending order (most recent first).
-        """
-        followings = Follow.objects.filter(follower=self.request.user).values_list(
-            "following", flat=True
-        )
-        followings_ids = list(followings) + [self.request.user.id]
+        from django.db.models import Count, Exists, OuterRef, Q
+
+        current_user = self.request.user
+        following_users = User.objects.filter(followers__follower=current_user)
         tweets = (
-            Tweet.objects.filter(user_id__in=followings_ids)
+            Tweet.objects.filter(Q(user__in=following_users) | Q(user=current_user))
             .select_related("user", "user__profile")
-            .prefetch_related(prefetch_top_level_comments())
-            .annotate(likes_count=Count("likes", distinct=True))
-            .order_by("-created_at")
+            .annotate(
+                likes_count=Count("likes", distinct=True),
+                comments_count=Count(
+                    "comments", filter=Q(comments__parent=None), distinct=True
+                ),
+                retweets_count=Count("retweets", distinct=True),
+                is_liked=Exists(
+                    Like.objects.filter(user=current_user, tweet=OuterRef("pk"))
+                ),
+                is_retweeted=Exists(
+                    Retweet.objects.filter(user=current_user, tweet=OuterRef("pk"))
+                ),
+            )
         )
 
-        return tweets
+        retweets = (
+            Retweet.objects.filter(Q(user__in=following_users) | Q(user=current_user))
+            .select_related(
+                "user", "user__profile", "tweet", "tweet__user", "tweet__user__profile"
+            )
+            .annotate(
+                tweet_likes_count=Count("tweet__likes", distinct=True),
+                tweet_comments_count=Count(
+                    "tweet__comments",
+                    filter=Q(tweet__comments__parent=None),
+                    distinct=True,
+                ),
+                tweet_retweets_count=Count("tweet__retweets", distinct=True),
+            )
+        )
+
+        posts = sorted(
+            list(tweets) + list(retweets), key=lambda x: x.created_at, reverse=True
+        )
+
+        return posts
 
 
 class UserPostsAPIView(generics.ListAPIView):
