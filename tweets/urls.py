@@ -3,7 +3,7 @@ from .views import (
     CreateTweetAPIView,
     FeedAPIView,
     UserPostsAPIView,
-    RetrieveDeleteTweetAPIView,
+    TweetAPIView,
     RetweetAPIView,
     ListRetweetsAPIView,
     ListLikesAPIView,
@@ -16,7 +16,7 @@ from .views import (
 urlpatterns = [
     path("", CreateTweetAPIView.as_view(), name="create-tweet"),
     path("feed/", FeedAPIView.as_view(), name="feed"),
-    path("<int:pk>/", RetrieveDeleteTweetAPIView.as_view(), name="tweet-detail"),
+    path("<int:pk>/", TweetAPIView.as_view(), name="tweet-detail"),
     path("<int:pk>/retweet/", RetweetAPIView.as_view(), name="retweet"),
     path("<int:pk>/retweets/", ListRetweetsAPIView.as_view(), name="retweets"),
     path("<int:pk>/like/", LikeTweetAPIView.as_view(), name="like-tweet"),

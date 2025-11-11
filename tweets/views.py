@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import generics, filters
 from rest_framework.permissions import IsAuthenticated
 from .serializers import (
-    CreateTweetSerializer,
+    TweetSerializer,
     FeedSerializer,
     RetrieveTweetSerializer,
     RetweetSerializer,
@@ -16,8 +16,7 @@ from .serializers import (
     PostSerializer,
 )
 from .models import Tweet, Like, Comment, Retweet
-from .permissions import IsAuthorOrReadOnly, IsTweetAuthor
-from relationships.models import Follow
+from .permissions import IsAuthorOrReadOnly, IsTweetAuthor, CanEdit
 
 # Create your views here.
 User = get_user_model()
@@ -37,7 +36,7 @@ def prefetch_top_level_comments(path: str = "comments"):
 
 class CreateTweetAPIView(generics.CreateAPIView):
     queryset = Tweet.objects.all()
-    serializer_class = CreateTweetSerializer
+    serializer_class = TweetSerializer
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
@@ -164,9 +163,8 @@ class UserPostsAPIView(generics.ListAPIView):
         return posts
 
 
-class RetrieveDeleteTweetAPIView(generics.RetrieveDestroyAPIView):
-    serializer_class = RetrieveTweetSerializer
-    permission_classes = [IsAuthenticated, IsAuthorOrReadOnly]
+class TweetAPIView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated, IsAuthorOrReadOnly, CanEdit]
 
     def get_queryset(self):
         return (
@@ -175,6 +173,12 @@ class RetrieveDeleteTweetAPIView(generics.RetrieveDestroyAPIView):
             .prefetch_related(prefetch_top_level_comments())
             .annotate(likes_count=Count("likes", distinct=True))
         )
+
+    def get_serializer_class(self):
+        if self.request.method in ("PUT", "PATCH"):
+            return TweetSerializer
+
+        return RetrieveTweetSerializer
 
 
 class RetweetAPIView(generics.CreateAPIView):

@@ -5,10 +5,22 @@ from .models import Tweet, Like, Comment, Retweet
 User = get_user_model()
 
 
-class CreateTweetSerializer(serializers.ModelSerializer):
+class TweetSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tweet
-        fields = ["content", "image"]
+        fields = ["id", "content", "image"]
+
+    def validate(self, attrs):
+        content = attrs.get("content")
+        image = attrs.get("image")
+
+        if not content and not image:
+            raise serializers.ValidationError(
+                {
+                    "error": "empty_tweet",
+                    "detail": "A tweet must have content, image, or both",
+                }
+            )
 
 
 class AuthorSerializer(serializers.ModelSerializer):
