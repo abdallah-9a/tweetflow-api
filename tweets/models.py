@@ -30,6 +30,11 @@ class Retweet(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "tweet"], name="unique_user_tweet_retweet"
+            )
+        ]
 
     def __str__(self):
         return f"{self.user.profile.name} repost {self.tweet.content[:20]}"

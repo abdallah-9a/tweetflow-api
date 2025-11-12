@@ -1,7 +1,10 @@
 from django.shortcuts import get_object_or_404
-from django.db.models import Prefetch, Count
+from django.db import IntegrityError
+from django.db.models import Prefetch, Count, Exists, OuterRef, Q
 from django.contrib.auth import get_user_model
-from rest_framework import generics, filters
+from rest_framework import generics, filters, mixins, status
+from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from .serializers import (
     TweetSerializer,
@@ -117,8 +120,6 @@ class UserPostsAPIView(generics.ListAPIView):
 
     def get_queryset(self):
 
-        from django.db.models import Count, Exists, OuterRef, Q
-
         user = get_object_or_404(User, username=self.kwargs["username"])
         current_user = self.request.user
 
@@ -181,19 +182,12 @@ class TweetAPIView(generics.RetrieveUpdateDestroyAPIView):
         return RetrieveTweetSerializer
 
 
-class RetweetAPIView(generics.CreateAPIView):
-    queryset = Retweet.objects.all()
-    serializer_class = RetweetSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_tweet(self):
-        return get_object_or_404(Tweet, pk=self.kwargs["pk"])
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user, tweet=self.get_tweet())
-
-
-class ListRetweetsAPIView(generics.ListAPIView):
+class RetweetAPIView(
+    mixins.CreateModelMixin,
+    mixins.ListModelMixin,
+    mixins.DestroyModelMixin,
+    generics.GenericAPIView,
+):
     serializer_class = RetweetSerializer
     permission_classes = [IsAuthenticated]
 
@@ -206,8 +200,61 @@ class ListRetweetsAPIView(generics.ListAPIView):
             .select_related(
                 "user", "user__profile", "tweet", "tweet__user", "tweet__user__profile"
             )
-            .prefetch_related(prefetch_top_level_comments("tweet__comments"))
+            .annotate(
+                tweet_likes_count=Count("tweet__likes", distinct=True),
+                tweet_comments_count=Count(
+                    "tweet__comments",
+                    filter=Q(tweet__comments__parent=None),
+                    distinct=True,
+                ),
+                tweet_retweets_count=Count("tweet__retweets", distinct=True),
+                tweet_is_liked=Exists(
+                    Like.objects.filter(user=self.request.user, tweet=self.get_tweet())
+                ),
+                tweet_is_retweeted=Exists(
+                    Retweet.objects.filter(
+                        user=self.request.user, tweet=self.get_tweet()
+                    )
+                ),
+            )
         )
+
+    def get_serializer(self, *args, **kwargs):
+        kwargs["context"] = {
+            **self.get_serializer_context(),
+            "user": self.request.user,
+            "tweet": self.get_tweet(),
+        }
+
+        return super().get_serializer(*args, **kwargs)
+
+    def perform_create(self, serializer):
+        try:
+            serializer.save(user=self.request.user, tweet=self.get_tweet())
+        except IntegrityError:
+            raise ValidationError(
+                {
+                    "error": "already_retweeted",
+                    "detail": "You have already retweeted this tweet. Use DELETE to unretweet.",
+                }
+            )
+
+    def post(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        if response.status_code == status.HTTP_201_CREATED:
+            instance = self.get_queryset().get(pk=response.data["id"])
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return response
+
+    def get(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        instance = get_object_or_404(Retweet, tweet=self.get_tweet(), user=request.user)
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class LikeTweetAPIView(generics.CreateAPIView):

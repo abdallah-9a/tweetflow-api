@@ -43,6 +43,8 @@ class OriginalTweetSerializer(serializers.ModelSerializer):
     likes_count = serializers.IntegerField(read_only=True)
     comments_count = serializers.IntegerField(read_only=True)
     retweets_count = serializers.IntegerField(read_only=True)
+    is_liked = serializers.BooleanField(read_only=True)
+    is_retweeted = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Tweet
@@ -54,6 +56,8 @@ class OriginalTweetSerializer(serializers.ModelSerializer):
             "likes_count",
             "comments_count",
             "retweets_count",
+            "is_liked",
+            "is_retweeted",
             "created_at",
         ]
 
@@ -158,20 +162,42 @@ class RetrieveTweetSerializer(serializers.ModelSerializer):
 
 
 class RetweetSerializer(serializers.ModelSerializer):
-    user = serializers.CharField(source="user.profile.name", read_only=True)
-    tweet = RetrieveTweetSerializer(read_only=True)
+    type = serializers.SerializerMethodField(read_only=True)
+    author = serializers.SerializerMethodField(read_only=True)
+    tweet = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Retweet
-        fields = ["user", "quote", "tweet"]
+        fields = ["id", "type", "author", "quote", "tweet", "created_at"]
 
+    def validate(self, attrs):
+        user = self.context["user"]
+        tweet = self.context["tweet"]
 
-class ListRetweetsSerializer(serializers.ModelSerializer):
-    user = serializers.CharField(source="user.profile.name", read_only=True)
+        if Retweet.objects.filter(user=user, tweet=tweet).exists():
+            raise serializers.ValidationError(
+                {
+                    "error": "already_retweeted",
+                    "detail": "You have already retweeted this tweet. Use DELETE to unretweet.",
+                }
+            )
 
-    class Meta:
-        model = Retweet
-        fields = ["user", "quote", "tweet", "created_at"]
+        return attrs
+
+    def get_type(self, obj):
+        return "retweet"
+
+    def get_author(self, obj):
+        return AuthorSerializer(obj.user).data
+
+    def get_tweet(self, obj):
+        tweet = obj.tweet
+        tweet.likes_count = getattr(obj, "tweet_likes_count", 0)
+        tweet.comments_count = getattr(obj, "tweet_comments_count", 0)
+        tweet.retweets_count = getattr(obj, "tweet_retweets_count", 0)
+        tweet.is_liked = getattr(obj, "tweet_is_liked", False)
+        tweet.is_retweeted = getattr(obj, "tweet_is_retweeted", False)
+        return OriginalTweetSerializer(tweet).data
 
 
 class LikeTweetSerializer(serializers.ModelSerializer):
