@@ -11,9 +11,7 @@ from .serializers import (
     FeedSerializer,
     RetrieveTweetSerializer,
     RetweetSerializer,
-    ListLikesSerializer,
     LikeTweetSerializer,
-    UnlikTweetSerializer,
     CommentOnTweetSerializer,
     ListCommentSerializer,
     PostSerializer,
@@ -257,10 +255,20 @@ class RetweetAPIView(
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class LikeTweetAPIView(generics.CreateAPIView):
-    queryset = Like.objects.all()
+class LikeTweetAPIView(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.DestroyModelMixin,
+    generics.GenericAPIView,
+):
+
     serializer_class = LikeTweetSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Like.objects.filter(tweet=self.get_tweet()).select_related(
+            "user", "user__profile"
+        )
 
     def get_tweet(self):
         return get_object_or_404(Tweet, pk=self.kwargs["pk"])
@@ -270,30 +278,40 @@ class LikeTweetAPIView(generics.CreateAPIView):
         context["tweet"] = self.get_tweet()
         return context
 
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsTweetAuthor()]
+
+        return super().get_permissions()
+
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user, tweet=self.get_tweet())
+        try:
+            serializer.save(user=self.request.user, tweet=self.get_tweet())
+        except IntegrityError:
+            raise ValidationError(
+                {
+                    "error": "already_liked",
+                    "detail": "You have already liked this tweet. Use DELETE to unlike.",
+                }
+            )
 
+    def get(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
-class UnlikeTweetAPIView(generics.DestroyAPIView):
-    queryset = Like.objects.all()
-    serializer_class = UnlikTweetSerializer
-    permission_classes = [IsAuthenticated]
+    def post(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        if response.status_code == status.HTTP_201_CREATED:
+            instance = self.get_queryset().get(pk=response.data["id"])
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    def get_object(self):
-        tweet = get_object_or_404(Tweet, pk=self.kwargs["pk"])
-        return get_object_or_404(Like, user=self.request.user, tweet=tweet)
+        return response
 
+    def delete(self, request, *args, **kwargs):
+        instance = get_object_or_404(Like, user=request.user, tweet=self.get_tweet())
+        self.perform_destroy(instance)
 
-class ListLikesAPIView(generics.ListAPIView):
-    serializer_class = ListLikesSerializer
-    permission_classes = [IsAuthenticated, IsTweetAuthor]
-
-    def get_tweet(self):
-        return get_object_or_404(Tweet, pk=self.kwargs["pk"])
-
-    def get_queryset(self):
-        tweet = self.get_tweet()
-        return Like.objects.filter(tweet=tweet).select_related("user", "user__profile")
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class CommentOnTweetAPIView(generics.CreateAPIView):

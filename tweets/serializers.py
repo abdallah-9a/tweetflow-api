@@ -201,12 +201,12 @@ class RetweetSerializer(serializers.ModelSerializer):
 
 
 class LikeTweetSerializer(serializers.ModelSerializer):
-    user = serializers.CharField(source="user.profile.name", read_only=True)
-    tweet = RetrieveTweetSerializer(read_only=True)
+    user = AuthorSerializer(read_only=True)
+    tweet_id = serializers.IntegerField(source="tweet.id", read_only=True)
 
     class Meta:
         model = Like
-        fields = ["user", "tweet"]
+        fields = ["id", "user", "tweet_id", "created_at"]
 
     def validate(self, attrs):
         user = self.context["request"].user
@@ -221,23 +221,6 @@ class LikeTweetSerializer(serializers.ModelSerializer):
             )
 
         return attrs
-
-
-class UnlikTweetSerializer(serializers.ModelSerializer):
-    user = serializers.CharField(source="user.profile.name", read_only=True)
-    tweet = RetrieveTweetSerializer(read_only=True)
-
-    class Meta:
-        model = Like
-        fields = ["user", "tweet"]
-
-
-class ListLikesSerializer(serializers.ModelSerializer):
-    user = serializers.CharField(source="user.profile.name", read_only=True)
-
-    class Meta:
-        model = Like
-        fields = ["user", "created_at"]
 
 
 class CommentOnTweetSerializer(serializers.ModelSerializer):
