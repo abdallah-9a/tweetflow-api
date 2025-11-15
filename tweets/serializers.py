@@ -21,6 +21,7 @@ class TweetSerializer(serializers.ModelSerializer):
                     "detail": "A tweet must have content, image, or both",
                 }
             )
+        return attrs
 
 
 class AuthorSerializer(serializers.ModelSerializer):
@@ -88,6 +89,8 @@ class FeedSerializer(serializers.Serializer):
                 "likes_count": getattr(instance, "tweet_likes_count", 0),
                 "comments_count": getattr(instance, "tweet_comments_count", 0),
                 "retweets_count": getattr(instance, "tweet_retweets_count", 0),
+                "is_liked": getattr(instance, "tweet_is_liked", False),
+                "is_retweeted": getattr(instance, "tweet_is_retweeted", False),
                 "created_at": instance.tweet.created_at,
             }
 
@@ -132,6 +135,8 @@ class PostSerializer(serializers.Serializer):
                 "likes_count": getattr(instance, "tweet_likes_count", 0),
                 "comments_count": getattr(instance, "tweet_comments_count", 0),
                 "retweets_count": getattr(instance, "tweet_retweets_count", 0),
+                "is_liked": getattr(instance, "tweet_is_liked", False),
+                "is_retweeted": getattr(instance, "tweet_is_retweeted", False),
                 "created_at": instance.tweet.created_at,
             }
 
@@ -224,21 +229,32 @@ class LikeTweetSerializer(serializers.ModelSerializer):
 
 
 class CommentOnTweetSerializer(serializers.ModelSerializer):
-    user = serializers.CharField(source="user.profile.name", read_only=True)
-    tweet = serializers.PrimaryKeyRelatedField(read_only=True)
+    author = serializers.SerializerMethodField(read_only=True)
+    tweet_id = serializers.IntegerField(source="tweet.id", read_only=True)
     parent = serializers.PrimaryKeyRelatedField(
         queryset=Comment.objects.all(), required=False, allow_null=True
     )
 
     class Meta:
         model = Comment
-        fields = ["user", "tweet", "parent", "content", "image"]
+        fields = [
+            "id",
+            "author",
+            "tweet_id",
+            "parent",
+            "content",
+            "image",
+            "created_at",
+        ]
+
+    def get_author(self, obj):
+        return AuthorSerializer(obj.user).data
 
     def validate(self, attrs):
         content = attrs.get("content", "")
         image = attrs.get("image")
         parent = attrs.get("parent")
-        tweet = self.context.get("tweet")
+        tweet_id = self.context.get("tweet_id")
 
         if not content and not image:
             raise serializers.ValidationError(
@@ -250,7 +266,7 @@ class CommentOnTweetSerializer(serializers.ModelSerializer):
 
         if parent:
             # Ensure replies stay on the same tweet
-            if tweet and parent.tweet_id != tweet.pk:
+            if parent.tweet_id != tweet_id:
                 raise serializers.ValidationError(
                     {
                         "error": "invalid_parent",
@@ -262,44 +278,43 @@ class CommentOnTweetSerializer(serializers.ModelSerializer):
 
 
 class CommentSerializer(serializers.ModelSerializer):
-    user = serializers.CharField(source="user.profile.name", read_only=True)
+    author = serializers.SerializerMethodField(read_only=True)
     parent = serializers.PrimaryKeyRelatedField(read_only=True)
+    tweet_id = serializers.IntegerField(source="tweet.id", read_only=True)
+    replies_count = serializers.SerializerMethodField(read_only=True)
     replies = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Comment
         fields = [
             "id",
-            "user",
+            "author",
+            "tweet_id",
             "parent",
             "content",
             "image",
-            "created_at",
-            "replies",
-        ]
-
-    def get_replies(self, obj):
-        queryset = obj.replies.all()
-        return CommentSerializer(queryset, many=True).data
-
-
-class ListCommentSerializer(serializers.ModelSerializer):
-    user = serializers.CharField(source="user.profile.name", read_only=True)
-    parent = serializers.PrimaryKeyRelatedField(read_only=True)
-    replies = serializers.SerializerMethodField(read_only=True)
-
-    class Meta:
-        model = Comment
-        fields = [
-            "id",
-            "user",
-            "parent",
-            "content",
-            "image",
+            "replies_count",
             "replies",
             "created_at",
         ]
 
+    def get_author(self, obj):
+        return AuthorSerializer(obj.user).data
+
+    def get_replies_count(self, obj):
+        return getattr(obj, "replies_count", 0)
+
     def get_replies(self, obj):
+
+        if self.context.get("skip_replies", False):
+            return []
+
         queryset = obj.replies.all()
-        return CommentSerializer(queryset, many=True).data
+
+        # If full_depth is True (detail view), allow unlimited recursion
+        if self.context.get("full_depth", False):
+            return CommentSerializer(queryset, many=True, context=self.context).data
+
+        return CommentSerializer(
+            queryset, many=True, context={**self.context, "skip_replies": True}
+        ).data

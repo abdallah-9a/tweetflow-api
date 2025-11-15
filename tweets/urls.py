@@ -7,7 +7,7 @@ from .views import (
     RetweetAPIView,
     LikeTweetAPIView,
     CommentOnTweetAPIView,
-    ListCommentAPIView,
+    CommentDetailAPIView,
 )
 
 urlpatterns = [
@@ -16,7 +16,11 @@ urlpatterns = [
     path("<int:pk>/", TweetAPIView.as_view(), name="tweet-detail"),
     path("<int:pk>/retweets/", RetweetAPIView.as_view(), name="retweet"),
     path("<int:pk>/likes/", LikeTweetAPIView.as_view(), name="like-tweet"),
-    path("<int:pk>/comment/", CommentOnTweetAPIView.as_view(), name="comment"),
-    path("<int:pk>/comments/", ListCommentAPIView.as_view(), name="comments"),
+    path("<int:pk>/comments/", CommentOnTweetAPIView.as_view(), name="comments"),
+    path(
+        "<int:pk>/comments/<int:comment_id>/",
+        CommentDetailAPIView.as_view(),
+        name="comment-details",
+    ),
     path("user/<str:username>/", UserPostsAPIView.as_view(), name="user-posts"),
 ]

@@ -13,11 +13,11 @@ from .serializers import (
     RetweetSerializer,
     LikeTweetSerializer,
     CommentOnTweetSerializer,
-    ListCommentSerializer,
+    CommentSerializer,
     PostSerializer,
 )
 from .models import Tweet, Like, Comment, Retweet
-from .permissions import IsAuthorOrReadOnly, IsTweetAuthor, CanEdit
+from .permissions import IsAuthorOrReadOnly, IsTweetAuthor, IsCommentOwner, CanEdit
 
 # Create your views here.
 User = get_user_model()
@@ -91,6 +91,12 @@ class FeedAPIView(generics.ListAPIView):
                     distinct=True,
                 ),
                 tweet_retweets_count=Count("tweet__retweets", distinct=True),
+                tweet_is_liked=Exists(
+                    Like.objects.filter(user=current_user, tweet=OuterRef("tweet"))
+                ),
+                tweet_is_retweeted=Exists(
+                    Retweet.objects.filter(user=current_user, tweet=OuterRef("tweet"))
+                ),
             )
         )
 
@@ -152,6 +158,12 @@ class UserPostsAPIView(generics.ListAPIView):
                     distinct=True,
                 ),
                 tweet_retweets_count=Count("tweet__retweets", distinct=True),
+                tweet_is_liked=Exists(
+                    Like.objects.filter(user=current_user, tweet=OuterRef("tweet"))
+                ),
+                tweet_is_retweeted=Exists(
+                    Retweet.objects.filter(user=current_user, tweet=OuterRef("tweet"))
+                ),
             )
         )
 
@@ -314,35 +326,73 @@ class LikeTweetAPIView(
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class CommentOnTweetAPIView(generics.CreateAPIView):
-    queryset = Comment.objects.all()
-    serializer_class = CommentOnTweetSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_tweet(self):
-        return get_object_or_404(Tweet, pk=self.kwargs["pk"])
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context["tweet"] = self.get_tweet()
-        return context
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user, tweet=self.get_tweet())
-
-
-class ListCommentAPIView(generics.ListAPIView):
-    serializer_class = ListCommentSerializer
+class CommentOnTweetAPIView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_tweet(self):
         return get_object_or_404(Tweet, pk=self.kwargs["pk"])
 
     def get_queryset(self):
-        replies = Comment.objects.select_related("user", "user__profile")
         return (
-            self.get_tweet()
-            .comments.filter(parent=None)
-            .select_related("user", "user__profile", "parent")
-            .prefetch_related(Prefetch("replies", queryset=replies))
+            Comment.objects.filter(tweet=self.get_tweet(), parent=None)
+            .select_related("user", "user__profile", "tweet")
+            .prefetch_related(
+                Prefetch(
+                    "replies",
+                    queryset=Comment.objects.select_related("user", "user__profile"),
+                )
+            )
+            .annotate(replies_count=Count("replies", distinct=True))
         )
+
+    def get_serializer_class(self):
+        if self.request.method == "GET":
+            return CommentSerializer
+        return CommentOnTweetSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["tweet_id"] = self.kwargs["pk"]
+        return context
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user, tweet=self.get_tweet())
+
+
+class CommentDetailAPIView(generics.RetrieveDestroyAPIView):
+    serializer_class = CommentSerializer
+
+    def get_queryset(self):
+        return Comment.objects.select_related(
+            "user", "user__profile", "tweet"
+        ).prefetch_related(
+            Prefetch(
+                "replies",
+                queryset=Comment.objects.select_related(
+                    "user", "user__profile"
+                ).prefetch_related(
+                    Prefetch(
+                        "replies",
+                        queryset=Comment.objects.select_related(
+                            "user", "user__profile"
+                        ),
+                    )
+                ),
+            )
+        )
+
+    def get_object(self):
+        tweet = get_object_or_404(Tweet, pk=self.kwargs["pk"])
+        return get_object_or_404(
+            self.get_queryset(), pk=self.kwargs["comment_id"], tweet=tweet
+        )
+
+    def get_permissions(self):
+        if self.request.method == "DELETE":
+            return [IsAuthenticated(), IsCommentOwner()]
+        return [IsAuthenticated()]
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["full_depth"] = True  # Full recusrsion
+        return context

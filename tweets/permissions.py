@@ -1,7 +1,7 @@
 from rest_framework import permissions
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from .models import Tweet
+from .models import Tweet, Comment
 
 
 class IsAuthorOrReadOnly(permissions.BasePermission):
@@ -18,6 +18,13 @@ class IsTweetAuthor(permissions.BasePermission):
         tweet_pk = view.kwargs.get("pk")
         tweet = get_object_or_404(Tweet, pk=tweet_pk)
         return tweet.user == request.user
+
+
+class IsCommentOwner(permissions.BasePermission):
+    message = "You must be the owner of this comment to delete it"
+
+    def has_object_permission(self, request, view, obj):
+        return request.user == obj.user
 
 
 class CanEdit(permissions.BasePermission):
