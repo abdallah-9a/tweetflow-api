@@ -383,9 +383,11 @@ class CommentDetailAPIView(generics.RetrieveDestroyAPIView):
 
     def get_object(self):
         tweet = get_object_or_404(Tweet, pk=self.kwargs["pk"])
-        return get_object_or_404(
+        obj = get_object_or_404(
             self.get_queryset(), pk=self.kwargs["comment_id"], tweet=tweet
         )
+        self.check_object_permissions(self.request, obj)
+        return obj
 
     def get_permissions(self):
         if self.request.method == "DELETE":
