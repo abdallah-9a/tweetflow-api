@@ -1,5 +1,17 @@
 from rest_framework import serializers
 from .models import Mention, Notification
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+
+class UserSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source="profile.name")
+    profile_image = serializers.ImageField(source="profile.profile_image")
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "name", "profile_image"]
 
 
 class ListUserMentionsSerializer(serializers.ModelSerializer):
@@ -36,11 +48,11 @@ class ListNotificationsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Notification
-        fields = ["id", "sender", "content", "is_read", "created_at"]
+        fields = ["id", "sender", "verb", "content", "is_read", "created_at"]
 
     def get_sender(self, obj):
         if obj.sender:
-            return obj.sender.profile.name
+            return UserSerializer(obj.sender).data
 
         return "System"
 

@@ -1,9 +1,11 @@
 from django.shortcuts import render
+from django.db.models import Count
 from rest_framework import generics, filters, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .models import Mention, Notification
 from .serializers import ListUserMentionsSerializer, ListNotificationsSerializer
+from .permissions import IsNotificationReceiver
 
 # Create your views here.
 
@@ -27,20 +29,46 @@ class ListNotificationAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Notification.objects.filter(receiver=self.request.user)
+        return (
+            Notification.objects.filter(receiver=self.request.user)
+            .select_related("sender", "sender__profile", "content_type")
+            .order_by("-created_at")
+        )
 
 
 class MarkNotificationAsReadAPIView(generics.UpdateAPIView):
     queryset = Notification.objects.all()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsNotificationReceiver]
     lookup_field = "pk"
 
     def patch(self, request, *args, **kwargs):
-        Notification = self.get_object()
-        if Notification.receiver != request.user:
-            return Response({"detail": "Not allowed"}, status=status.HTTP_403_FORBIDDEN)
+        notification = self.get_object()
 
-        Notification.is_read = True
-        Notification.save()
+        notification.is_read = True
+        notification.save()
 
-        return Response({"msg": "Notification marked as read"})
+        return Response({"detail": "Notification marked as read"})
+
+
+class NotificationsCountAPIView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(receiver=self.request.user, is_read=False)
+
+    def get(self, request):
+        unread_count = self.get_queryset().count()
+
+        return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+
+
+class UnreadNotificationsAPIView(generics.ListAPIView):
+    serializer_class = ListNotificationsSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return (
+            Notification.objects.filter(receiver=self.request.user, is_read=False)
+            .select_related("sender", "sender__profile", "content_type")
+            .order_by("-created_at")
+        )
