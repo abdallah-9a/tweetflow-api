@@ -1,4 +1,3 @@
-from django.shortcuts import render
 from django.db.models import Count
 from rest_framework import generics, filters, status
 from rest_framework.response import Response
@@ -71,4 +70,36 @@ class UnreadNotificationsAPIView(generics.ListAPIView):
             Notification.objects.filter(receiver=self.request.user, is_read=False)
             .select_related("sender", "sender__profile", "content_type")
             .order_by("-created_at")
+        )
+
+
+class DeleteNotificationAPIView(generics.DestroyAPIView):
+    queryset = Notification.objects.all()
+    permission_classes = [IsAuthenticated, IsNotificationReceiver]
+    lookup_field = "pk"
+
+    def destroy(self, request, *args, **kwargs):
+        notification = self.get_object()
+        notification.delete()
+
+        return Response(
+            {"detail": "Notification deleted successfully"},
+            status=status.HTTP_204_NO_CONTENT,
+        )
+
+
+class MarkAllNotificationsAsReadAPIView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        updated_count = Notification.objects.filter(
+            receiver=request.user, is_read=False
+        ).update(is_read=True)
+
+        return Response(
+            {
+                "detail": "All notifications marked as read",
+                "updated_count": updated_count,
+            },
+            status=status.HTTP_200_OK,
         )
