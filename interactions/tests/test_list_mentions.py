@@ -3,11 +3,10 @@ from django.urls import reverse
 from django.contrib.contenttypes.models import ContentType
 from rest_framework import status
 from rest_framework.test import APITestCase
-from .models import Mention
+from interactions.models import Mention
 from tweets.models import Tweet
 
 
-# Create your tests here.
 User = get_user_model()
 
 
