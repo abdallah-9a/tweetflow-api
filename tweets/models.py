@@ -84,3 +84,18 @@ class Comment(models.Model):
             raise ValidationError(
                 "Reply must belong to the same tweet as its parent comment"
             )
+
+
+class Bookmark(models.Model):
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="bookmarks")
+    tweet = models.ForeignKey(Tweet, on_delete=models.CASCADE, related_name="bookmarks")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "tweet"], name="unique_user_tweet_bookmark"
+            )
+        ]
+        ordering = ["-created_at"]
