@@ -15,8 +15,9 @@ from .serializers import (
     CommentOnTweetSerializer,
     CommentSerializer,
     PostSerializer,
+    BookmarkSerializer,
 )
-from .models import Tweet, Like, Comment, Retweet
+from .models import Tweet, Like, Comment, Retweet, Bookmark
 from .permissions import IsAuthorOrReadOnly, IsTweetAuthor, IsCommentOwner, CanEdit
 
 # Create your views here.
@@ -75,6 +76,9 @@ class FeedAPIView(generics.ListAPIView):
                 is_retweeted=Exists(
                     Retweet.objects.filter(user=current_user, tweet=OuterRef("pk"))
                 ),
+                is_bookmarked=Exists(
+                    Bookmark.objects.filter(user=current_user, tweet=OuterRef("pk"))
+                ),
             )
         )
 
@@ -96,6 +100,9 @@ class FeedAPIView(generics.ListAPIView):
                 ),
                 tweet_is_retweeted=Exists(
                     Retweet.objects.filter(user=current_user, tweet=OuterRef("tweet"))
+                ),
+                tweet_is_bookmarked=Exists(
+                    Bookmark.objects.filter(user=current_user, tweet=OuterRef("tweet"))
                 ),
             )
         )
@@ -142,6 +149,9 @@ class UserPostsAPIView(generics.ListAPIView):
                 is_retweeted=Exists(
                     Retweet.objects.filter(user=current_user, tweet=OuterRef("pk"))
                 ),
+                is_bookmarked=Exists(
+                    Bookmark.objects.filter(user=current_user, tweet=OuterRef("pk"))
+                ),
             )
         )
 
@@ -163,6 +173,9 @@ class UserPostsAPIView(generics.ListAPIView):
                 ),
                 tweet_is_retweeted=Exists(
                     Retweet.objects.filter(user=current_user, tweet=OuterRef("tweet"))
+                ),
+                tweet_is_bookmarked=Exists(
+                    Bookmark.objects.filter(user=current_user, tweet=OuterRef("tweet"))
                 ),
             )
         )
@@ -398,3 +411,51 @@ class CommentDetailAPIView(generics.RetrieveDestroyAPIView):
         context = super().get_serializer_context()
         context["full_depth"] = True  # Full recusrsion
         return context
+
+
+class BookmarkAPIView(
+    mixins.CreateModelMixin,
+    mixins.DestroyModelMixin,
+    generics.GenericAPIView,
+):
+    serializer_class = BookmarkSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return (
+            Bookmark.objects.filter(user=self.request.user)
+            .select_related("user", "user__profile", "tweet")
+            .prefetch_related("tweet__comments")
+        )
+
+    def get_tweet(self):
+        return get_object_or_404(Tweet, pk=self.kwargs["pk"])
+
+    def perform_create(self, serializer):
+        try:
+            serializer.save(user=self.request.user, tweet=self.get_tweet())
+        except IntegrityError:
+            raise ValidationError(
+                {
+                    "error": "already_bookmarked",
+                    "detail": "You have already bookmarked this tweet. Use DELETE to remove.",
+                }
+            )
+
+    def post(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        if response.status_code == status.HTTP_201_CREATED:
+            return Response(
+                {"detail": "Tweet added to your bookmarks"}, status=status.HTTP_200_OK
+            )
+        return response
+
+    def delete(self, request, *args, **kwargs):
+        instance = get_object_or_404(
+            Bookmark, tweet=self.get_tweet(), user=request.user
+        )
+        self.perform_destroy(instance)
+        return Response(
+            {"detail": "Tweet removed from your bookmarks"}, status=status.HTTP_200_OK
+        )
+

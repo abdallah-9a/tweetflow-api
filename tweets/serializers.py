@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import Tweet, Like, Comment, Retweet
+from .models import Tweet, Like, Comment, Retweet, Bookmark
 
 User = get_user_model()
 
@@ -46,6 +46,7 @@ class OriginalTweetSerializer(serializers.ModelSerializer):
     retweets_count = serializers.IntegerField(read_only=True)
     is_liked = serializers.BooleanField(read_only=True)
     is_retweeted = serializers.BooleanField(read_only=True)
+    is_bookmarked = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Tweet
@@ -59,6 +60,7 @@ class OriginalTweetSerializer(serializers.ModelSerializer):
             "retweets_count",
             "is_liked",
             "is_retweeted",
+            "is_bookmarked",
             "created_at",
         ]
 
@@ -77,6 +79,7 @@ class FeedSerializer(serializers.Serializer):
                 "retweets_count": getattr(instance, "retweets_count", 0),
                 "is_liked": getattr(instance, "is_liked", False),
                 "is_retweeted": getattr(instance, "is_retweeted", False),
+                "is_bookmarked": getattr(instance, "is_bookmarked", False),
                 "created_at": instance.created_at,
             }
 
@@ -91,6 +94,7 @@ class FeedSerializer(serializers.Serializer):
                 "retweets_count": getattr(instance, "tweet_retweets_count", 0),
                 "is_liked": getattr(instance, "tweet_is_liked", False),
                 "is_retweeted": getattr(instance, "tweet_is_retweeted", False),
+                "is_bookmarked": getattr(instance, "tweet_is_bookmarked", False),
                 "created_at": instance.tweet.created_at,
             }
 
@@ -123,6 +127,7 @@ class PostSerializer(serializers.Serializer):
                 "retweets_count": getattr(instance, "retweets_count", 0),
                 "is_liked": getattr(instance, "is_liked", False),
                 "is_retweeted": getattr(instance, "is_retweeted", False),
+                "is_bookmarked": getattr(instance, "is_bookmarked", False),
                 "created_at": instance.created_at,
             }
 
@@ -137,6 +142,7 @@ class PostSerializer(serializers.Serializer):
                 "retweets_count": getattr(instance, "tweet_retweets_count", 0),
                 "is_liked": getattr(instance, "tweet_is_liked", False),
                 "is_retweeted": getattr(instance, "tweet_is_retweeted", False),
+                "is_bookmarked": getattr(instance, "tweet_is_bookmarked", False),
                 "created_at": instance.tweet.created_at,
             }
 
@@ -318,3 +324,12 @@ class CommentSerializer(serializers.ModelSerializer):
         return CommentSerializer(
             queryset, many=True, context={**self.context, "skip_replies": True}
         ).data
+
+
+class BookmarkSerializer(serializers.ModelSerializer):
+    user = AuthorSerializer(read_only=True)
+    tweet = RetrieveTweetSerializer(read_only=True)
+
+    class Meta:
+        model = Bookmark
+        fields = ["id", "user", "tweet"]

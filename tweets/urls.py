@@ -8,6 +8,7 @@ from .views import (
     LikeTweetAPIView,
     CommentOnTweetAPIView,
     CommentDetailAPIView,
+    BookmarkAPIView,
 )
 
 urlpatterns = [
@@ -23,4 +24,5 @@ urlpatterns = [
         name="comment-details",
     ),
     path("user/<str:username>/", UserPostsAPIView.as_view(), name="user-posts"),
+    path("<int:pk>/bookmark/", BookmarkAPIView.as_view(), name="bookmark"),
 ]
