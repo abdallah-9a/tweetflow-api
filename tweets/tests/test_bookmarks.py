@@ -25,7 +25,7 @@ class TestBookmarkEndpoints(APITestCase):
     def test_bookmark_tweet_success(self):
         self.authenticate()
         response = self.client.post(self.url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(
             Bookmark.objects.filter(user=self.user, tweet=self.tweet).exists()
         )

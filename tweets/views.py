@@ -16,6 +16,7 @@ from .serializers import (
     CommentSerializer,
     PostSerializer,
     BookmarkSerializer,
+    BookmarkedTweetSerializer,
 )
 from .models import Tweet, Like, Comment, Retweet, Bookmark
 from .permissions import IsAuthorOrReadOnly, IsTweetAuthor, IsCommentOwner, CanEdit
@@ -446,7 +447,8 @@ class BookmarkAPIView(
         response = super().create(request, *args, **kwargs)
         if response.status_code == status.HTTP_201_CREATED:
             return Response(
-                {"detail": "Tweet added to your bookmarks"}, status=status.HTTP_200_OK
+                {"detail": "Tweet added to your bookmarks"},
+                status=status.HTTP_201_CREATED,
             )
         return response
 
@@ -459,3 +461,30 @@ class BookmarkAPIView(
             {"detail": "Tweet removed from your bookmarks"}, status=status.HTTP_200_OK
         )
 
+
+class UserBookmarksAPIView(generics.ListAPIView):
+    serializer_class = BookmarkedTweetSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return (
+            Bookmark.objects.filter(user=self.request.user)
+            .select_related("tweet", "tweet__user", "tweet__user__profile")
+            .annotate(
+                likes_count=Count("tweet__likes", distinct=True),
+                comments_count=Count(
+                    "tweet__comments",
+                    filter=Q(tweet__comments__parent=None),
+                    distinct=True,
+                ),
+                retweets_count=Count("tweet__retweets", distinct=True),
+                is_liked=Exists(
+                    Like.objects.filter(user=self.request.user, tweet=OuterRef("tweet"))
+                ),
+                is_retweeted=Exists(
+                    Retweet.objects.filter(
+                        user=self.request.user, tweet=OuterRef("tweet")
+                    )
+                ),
+            )
+        ).order_by("-created_at")

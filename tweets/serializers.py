@@ -333,3 +333,19 @@ class BookmarkSerializer(serializers.ModelSerializer):
     class Meta:
         model = Bookmark
         fields = ["id", "user", "tweet"]
+
+
+class BookmarkedTweetSerializer(serializers.Serializer):
+    def to_representation(self, instance):
+        tweet = instance.tweet
+        tweet.likes_count = getattr(instance, "likes_count", 0)
+        tweet.comments_count = getattr(instance, "comments_count", 0)
+        tweet.retweets_count = getattr(instance, "retweets_count", 0)
+        tweet.is_liked = getattr(instance, "is_liked", False)
+        tweet.is_retweeted = getattr(instance, "is_retweeted", False)
+        tweet.is_bookmarked = True
+
+        data = OriginalTweetSerializer(tweet).data
+        data["bookmarked_at"] = instance.created_at
+
+        return data
