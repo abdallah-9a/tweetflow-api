@@ -18,7 +18,7 @@ class UserRegistrationAPITestCase(APITestCase):
         response = self.client.post(self.url, self.data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(User.objects.filter(username=self.data["username"]).exists())
-        self.assertIn("msg", response.data)
+        self.assertIn("detail", response.data)
         self.assertIn("token", response.data)
 
     def test_auto_create_profile_post_user(self):

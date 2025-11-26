@@ -23,7 +23,7 @@ class UserLogoutAPITestCase(APITestCase):
 
         response = self.client.post(self.url, {"refresh": tokens["refresh"]})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("msg", response.data)
+        self.assertIn("detail", response.data)
 
     def test_logout_without_authentication(self):
         response = self.client.post(self.url, {"refresh": "refresh-token"})

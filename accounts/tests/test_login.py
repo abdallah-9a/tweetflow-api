@@ -16,14 +16,14 @@ class UserLoginAPITestCase(APITestCase):
         response = self.client.post(self.url, self.data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("token", response.data)
-        self.assertIn("msg", response.data)
+        self.assertIn("detail", response.data)
 
     def test_login_with_wrong_password(self):
         data = self.data.copy()
         data["password"] = "user1111"
 
         response = self.client.post(self.url, data)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_login_with_missing_username_field(self):
         data = {"password": "user1234"}
