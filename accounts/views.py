@@ -4,6 +4,7 @@ from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.urls import reverse
+from django.core.cache import cache
 from .models import User
 from .utils import Util
 from rest_framework import status, filters
@@ -193,6 +194,18 @@ class UserRetrieveView(generics.RetrieveAPIView):
                 following_count=Count("following", distinct=True),
             )
         )
+
+    def retrieve(self, request, *args, **kwargs):
+        username = self.kwargs["username"]
+        cache_key = f"user_profile:{username}"
+        cached_response = cache.get(cache_key)
+
+        if cached_response is not None:
+            return Response(cached_response)
+
+        response = super().retrieve(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=60)
+        return response
 
 
 class DeactivateAPIView(APIView):

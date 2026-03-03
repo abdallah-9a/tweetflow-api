@@ -217,12 +217,12 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_followers(self, obj):
         request = self.context.get("request")
-        url = reverse("followers", kwargs={"pk": obj.pk})
+        url = reverse("followers", kwargs={"username": obj.username})
         return request.build_absolute_uri(url) if request else url
 
     def get_following(self, obj):
         request = self.context.get("request")
-        url = reverse("following", kwargs={"pk": obj.pk})
+        url = reverse("following", kwargs={"username": obj.username})
         return request.build_absolute_uri(url) if request else url
 
     def get_posts(self, obj):
