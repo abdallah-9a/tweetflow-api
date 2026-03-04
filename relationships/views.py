@@ -9,6 +9,7 @@ from .serializers import (
     FollowingUserSerializer,
 )
 from .models import Follow
+from tweets.cache_utils import invalidate_feed_cache
 
 # Create your views here.
 User = get_user_model()
@@ -30,6 +31,7 @@ class FollowUserAPIView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(follower=self.request.user, following=self.get_following())
+        invalidate_feed_cache(self.request.user.id)
 
 
 class UnFollowUserAPIView(generics.DestroyAPIView):
@@ -44,6 +46,10 @@ class UnFollowUserAPIView(generics.DestroyAPIView):
         return get_object_or_404(
             Follow, follower=self.request.user, following=self.get_following()
         )
+
+    def perform_destroy(self, instance):
+        instance.delete()
+        invalidate_feed_cache(self.request.user.id)
 
 
 class ListFollowersAPIView(generics.ListAPIView):

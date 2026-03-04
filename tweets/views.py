@@ -2,10 +2,12 @@ from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
 from django.db.models import Prefetch, Count, Exists, OuterRef, Q
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from rest_framework import generics, filters, mixins, status
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
+from .cache_utils import invalidate_feed_cache, get_feed_cache_key
 from .serializers import (
     TweetSerializer,
     FeedSerializer,
@@ -44,6 +46,7 @@ class CreateTweetAPIView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+        invalidate_feed_cache(self.request.user.id)
 
 
 class FeedAPIView(generics.ListAPIView):
@@ -56,6 +59,19 @@ class FeedAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter]
     search_fields = ["user__username", "user__profile__name", "content"]
+
+    def list(self, request, *args, **kwargs):
+        page = request.query_params.get("page", "1")
+        search = request.query_params.get("search", "")
+        cache_key = get_feed_cache_key(request.user.id, page, search)
+        cached = cache.get(cache_key)
+
+        if cached is not None:
+            return Response(cached)
+
+        response = super().list(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=120) # 2 minutes
+        return response
 
     def get_queryset(self):
         from django.db.models import Count, Exists, OuterRef, Q
@@ -205,6 +221,15 @@ class TweetAPIView(generics.RetrieveUpdateDestroyAPIView):
 
         return RetrieveTweetSerializer
 
+    def perform_update(self, serializer):
+        serializer.save()
+        invalidate_feed_cache(self.request.user.id)
+
+    def perform_destroy(self, instance):
+        user_id = instance.user.id
+        instance.delete()
+        invalidate_feed_cache(user_id)
+
 
 class RetweetAPIView(
     mixins.CreateModelMixin,
@@ -268,6 +293,7 @@ class RetweetAPIView(
         if response.status_code == status.HTTP_201_CREATED:
             instance = self.get_queryset().get(pk=response.data["id"])
             serializer = self.get_serializer(instance)
+            invalidate_feed_cache(request.user.id)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return response
@@ -278,6 +304,7 @@ class RetweetAPIView(
     def delete(self, request, *args, **kwargs):
         instance = get_object_or_404(Retweet, tweet=self.get_tweet(), user=request.user)
         self.perform_destroy(instance)
+        invalidate_feed_cache(request.user.id)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
