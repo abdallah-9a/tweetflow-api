@@ -7,7 +7,7 @@ from rest_framework import generics, filters, mixins, status
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
-from .cache_utils import invalidate_feed_cache, get_feed_cache_key
+from .cache_utils import invalidate_feed_cache, get_feed_cache_key, invalidate_user_posts_cache, get_user_posts_cache_key
 from .serializers import (
     TweetSerializer,
     FeedSerializer,
@@ -146,11 +146,12 @@ class UserPostsAPIView(generics.ListAPIView):
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticated]
 
+        
     def get_queryset(self):
 
         user = get_object_or_404(User, username=self.kwargs["username"])
         current_user = self.request.user
-
+        
         tweets = (
             Tweet.objects.filter(user=user)
             .select_related("user", "user__profile")
@@ -202,6 +203,22 @@ class UserPostsAPIView(generics.ListAPIView):
         )
 
         return posts
+
+
+def list(self, request, *args, **kwargs):
+        user = get_object_or_404(User, username=self.kwargs["username"])
+        viewer = request.user
+        page = request.query_params.get("page", "1")
+
+        cache_key = get_user_posts_cache_key(user.id, viewer.id,page)
+        cached = cache.get(cache_key)
+
+        if cached is not None:
+            return Response(cached)
+        
+        response = super().list(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=300) # 5 minutes
+        return response
 
 
 class TweetAPIView(generics.RetrieveUpdateDestroyAPIView):
