@@ -7,7 +7,7 @@ from rest_framework import generics, filters, mixins, status
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
-from .cache_utils import invalidate_feed_cache, get_feed_cache_key, invalidate_user_posts_cache, get_user_posts_cache_key
+from .cache_utils import invalidate_feed_cache, get_feed_cache_key, invalidate_user_posts_cache, get_user_posts_cache_key,get_tweet_cache_key, invalidate_tweet_cache
 from .serializers import (
     TweetSerializer,
     FeedSerializer,
@@ -205,20 +205,20 @@ class UserPostsAPIView(generics.ListAPIView):
         return posts
 
 
-def list(self, request, *args, **kwargs):
-        user = get_object_or_404(User, username=self.kwargs["username"])
-        viewer = request.user
-        page = request.query_params.get("page", "1")
+    def list(self, request, *args, **kwargs):
+            user = get_object_or_404(User, username=self.kwargs["username"])
+            viewer = request.user
+            page = request.query_params.get("page", "1")
 
-        cache_key = get_user_posts_cache_key(user.id, viewer.id,page)
-        cached = cache.get(cache_key)
+            cache_key = get_user_posts_cache_key(user.id, viewer.id,page)
+            cached = cache.get(cache_key)
 
-        if cached is not None:
-            return Response(cached)
-        
-        response = super().list(request, *args, **kwargs)
-        cache.set(cache_key, response.data, timeout=300) # 5 minutes
-        return response
+            if cached is not None:
+                return Response(cached)
+            
+            response = super().list(request, *args, **kwargs)
+            cache.set(cache_key, response.data, timeout=300) # 5 minutes
+            return response
 
 
 class TweetAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -237,15 +237,33 @@ class TweetAPIView(generics.RetrieveUpdateDestroyAPIView):
             return TweetSerializer
 
         return RetrieveTweetSerializer
+    
+    def retrieve(self, request, *args, **kwargs):
+        viewer = request.user
+        tweet_id = self.kwargs["pk"]
+
+        cache_key = get_tweet_cache_key(tweet_id,viewer.id)
+        cached = cache.get(cache_key)
+
+        if cached is not None:
+            return Response(cached)
+        
+        tweet = self.get_object()
+        serializer = self.get_serializer(tweet)
+        cache.set(cache_key, serializer.data, timeout=300) # 5 minutes
+        return Response(serializer.data)
 
     def perform_update(self, serializer):
-        serializer.save()
+        tweet = serializer.save()
         invalidate_feed_cache(self.request.user.id)
+        invalidate_tweet_cache(tweet.id)
 
     def perform_destroy(self, instance):
         user_id = instance.user.id
+        tweet_id = instance.id
         instance.delete()
         invalidate_feed_cache(user_id)
+        invalidate_tweet_cache(tweet_id)
 
 
 class RetweetAPIView(
