@@ -47,6 +47,7 @@ class CreateTweetAPIView(generics.CreateAPIView):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
         invalidate_feed_cache(self.request.user.id)
+        invalidate_user_posts_cache(self.request.user.id)
 
 
 class FeedAPIView(generics.ListAPIView):
@@ -256,6 +257,7 @@ class TweetAPIView(generics.RetrieveUpdateDestroyAPIView):
     def perform_update(self, serializer):
         tweet = serializer.save()
         invalidate_feed_cache(self.request.user.id)
+        invalidate_user_posts_cache(self.request.user.id)
         invalidate_tweet_cache(tweet.id)
 
     def perform_destroy(self, instance):
@@ -263,6 +265,7 @@ class TweetAPIView(generics.RetrieveUpdateDestroyAPIView):
         tweet_id = instance.id
         instance.delete()
         invalidate_feed_cache(user_id)
+        invalidate_user_posts_cache(user_id)
         invalidate_tweet_cache(tweet_id)
 
 
@@ -329,6 +332,7 @@ class RetweetAPIView(
             instance = self.get_queryset().get(pk=response.data["id"])
             serializer = self.get_serializer(instance)
             invalidate_feed_cache(request.user.id)
+            invalidate_user_posts_cache(request.user.id)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return response
@@ -340,6 +344,7 @@ class RetweetAPIView(
         instance = get_object_or_404(Retweet, tweet=self.get_tweet(), user=request.user)
         self.perform_destroy(instance)
         invalidate_feed_cache(request.user.id)
+        invalidate_user_posts_cache(request.user.id)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
