@@ -136,49 +136,27 @@ class SendPasswordRestEmailSerializer(serializers.Serializer):
         fields = ["email"]
 
 
-class UserPasswordResetSerializer(serializers.Serializer):
-    password = serializers.CharField(
-        max_length=255, style={"input_type": "password"}, write_only=True
-    )
-    password2 = serializers.CharField(
-        max_length=255, style={"input_type": "password"}, write_only=True
-    )
+def validate(self, attrs):
+        password = attrs.get("password")
+        password2 = attrs.get("password2")
+        token = self.context.get("token")
+        uid = self.context.get("uid")
 
-    class Meta:
-        fields = ["password", "password2"]
+        if password != password2:
+            raise serializers.ValidationError({"password": "Passwords Don't Match"})
 
-    def validate(self, attrs):
         try:
-            password = attrs.get("password")
-            password2 = attrs.get("password2")
+            user_id = force_bytes(urlsafe_base64_decode(uid))
+            user = User.objects.get(id=user_id)
 
-            token = self.context.get("token")
-            uid = self.context.get("uid")
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            raise serializers.ValidationError({"token": "Invalid user identification"})
 
-            if password != password2:
-                raise serializers.ValidationError("Passwords Don't Match")
+        if not PasswordResetTokenGenerator().check_token(user, token):
+            raise serializers.ValidationError({"token": "Reset link is invalid or expired"})
 
-            id = force_bytes(urlsafe_base64_decode(uid))
-            user = User.objects.get(id=id)
-
-            if not PasswordResetTokenGenerator().check_token(user, token):
-                raise serializers.ValidationError("Reset link is invalid or expired")
-
-            self.user = user
-            return attrs
-
-        except Exception:
-            raise serializers.ValidationError(
-                "Something went wrong with resetting password"
-            )
-
-    def save(self, **kwargs):
-        user = getattr(self, "user", None)
-        user.set_password(self.validated_data["password"])
-        user.save()
-        create_notification(receiver=user, verb="reset")
-
-        return user
+        self.user = user
+        return attrs
 
 
 class ProfileSerializer(serializers.ModelSerializer):
