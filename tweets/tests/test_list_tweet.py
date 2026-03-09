@@ -1,4 +1,5 @@
 from django.urls import reverse
+from django.core.cache import cache
 from rest_framework.test import APITestCase
 from rest_framework import status
 from tweets.models import Tweet
@@ -7,6 +8,7 @@ from accounts.models import User
 
 class TestListTweet(APITestCase):
     def setUp(self):
+        cache.clear()
         self.url = reverse("feed")
         self.user = User.objects.create_user(
             username="user", email="user@gmail.com", password="user1234"

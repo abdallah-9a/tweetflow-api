@@ -1,4 +1,5 @@
 from django.urls import reverse
+from django.core.cache import cache
 from rest_framework.test import APITestCase
 from rest_framework import status
 from tweets.models import Tweet, Retweet
@@ -9,6 +10,7 @@ class TestUserPosts(APITestCase):
     """Test suite for user posts endpoint (tweets + retweets)"""
 
     def setUp(self):
+        cache.clear()
         self.user = User.objects.create_user(
             username="testuser", email="user@gmail.com", password="user1234"
         )
