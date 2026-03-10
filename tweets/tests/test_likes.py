@@ -1,8 +1,10 @@
 from django.urls import reverse
+from django.contrib.contenttypes.models import ContentType
 from rest_framework.test import APITestCase
 from rest_framework import status
 from tweets.models import Tweet, Like
 from accounts.models import User
+from interactions.models import Notification
 
 
 class TestLikeEndpoints(APITestCase):
@@ -28,6 +30,35 @@ class TestLikeEndpoints(APITestCase):
         response = self.client.post(self.url)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(Like.objects.filter(user=self.user, tweet=self.tweet).exists())
+
+    def test_like_unlike_like_again_does_not_crash(self):
+        """Like -> Unlike -> Like again should PASS (notification de-dupe)."""
+        self.authenticate()
+
+        tweet = Tweet.objects.create(content="Other user's tweet", user=self.other_user)
+        url = reverse("like-tweet", kwargs={"pk": tweet.pk})
+
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(Like.objects.filter(user=self.user, tweet=tweet).exists())
+
+        tweet_ct = ContentType.objects.get_for_model(Tweet)
+        self.assertEqual(
+            Notification.objects.filter(
+                sender=self.user,
+                receiver=self.other_user,
+                verb="liked",
+                content_type=tweet_ct,
+                content_id=tweet.pk,
+            ).count(),
+            1,
+        )
 
     def test_like_tweet_duplicate_prevented(self):
         self.authenticate()
