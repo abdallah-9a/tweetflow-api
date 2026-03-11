@@ -54,3 +54,22 @@ class TestListTweet(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         self.assertEqual(len(response.data["results"]), 0)
+
+    def test_feed_search(self):
+        self.authenticate()
+        Tweet.objects.create(user=self.user, content="Python is great")
+        Tweet.objects.create(user=self.user, content="Django is awesome")
+        
+        response = self.client.get(self.url, {"search": "Python"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["content"], "Python is great")
+
+    def test_feed_cache_invalidation(self):
+        self.authenticate()
+        Tweet.objects.create(user=self.user, content="Old Tweet")
+        self.client.get(self.url)
+        self.client.post(reverse("create-tweet"), {"content": "New Tweet"})
+        
+        response = self.client.get(self.url)
+        self.assertEqual(response.data["results"][0]["content"], "New Tweet")

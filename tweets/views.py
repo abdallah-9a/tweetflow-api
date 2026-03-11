@@ -70,9 +70,18 @@ class FeedAPIView(generics.ListAPIView):
         if cached is not None:
             return Response(cached)
 
-        response = super().list(request, *args, **kwargs)
-        cache.set(cache_key, response.data, timeout=120) # 2 minutes
-        return response
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            cache.set(cache_key, response.data, timeout=120)
+            return response
+
+        serializer = self.get_serializer(queryset, many=True)
+        cache.set(cache_key, serializer.data, timeout=120)
+        return Response(serializer.data)
 
     def get_queryset(self):
         from django.db.models import Count, Exists, OuterRef, Q
