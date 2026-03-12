@@ -168,7 +168,8 @@ class RetrieveTweetSerializer(serializers.ModelSerializer):
         fields = ["user", "content", "image", "likes_count", "comments", "created_at"]
 
     def get_comments(self, obj):
-        queryset = obj.comments.filter(parent=None)
+        all_comments = obj.comments.all()
+        queryset = [c for c in all_comments if c.parent_id is None]
         return CommentSerializer(queryset, many=True).data
 
 
