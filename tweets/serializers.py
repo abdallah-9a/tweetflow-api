@@ -209,6 +209,7 @@ class RetweetSerializer(serializers.ModelSerializer):
         tweet.retweets_count = getattr(obj, "tweet_retweets_count", 0)
         tweet.is_liked = getattr(obj, "tweet_is_liked", False)
         tweet.is_retweeted = getattr(obj, "tweet_is_retweeted", False)
+        tweet.is_bookmarked = getattr(obj, "tweet_is_bookmarked", False)
         return OriginalTweetSerializer(tweet).data
 
 

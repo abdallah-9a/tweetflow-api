@@ -138,6 +138,15 @@ class FeedAPIView(generics.ListAPIView):
             list(tweets) + list(retweets), key=lambda x: x.created_at, reverse=True
         )
 
+        search_query = self.request.query_params.get("search", "").lower()
+        if search_query:
+            posts = [
+                p for p in posts 
+                if search_query in getattr(p, 'content', '').lower() or 
+                   search_query in p.user.username.lower() or
+                   search_query in getattr(p, 'quote', '').lower()
+            ]
+
         return posts
 
 
@@ -309,6 +318,11 @@ class RetweetAPIView(
                 ),
                 tweet_is_retweeted=Exists(
                     Retweet.objects.filter(
+                        user=self.request.user, tweet=self.get_tweet()
+                    )
+                ),
+                tweet_is_bookmarked=Exists(
+                    Bookmark.objects.filter(
                         user=self.request.user, tweet=self.get_tweet()
                     )
                 ),
