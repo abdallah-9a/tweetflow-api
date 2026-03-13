@@ -188,7 +188,6 @@ class UserRetrieveView(generics.RetrieveAPIView):
             super()
             .get_queryset()
             .select_related("profile")
-            .prefetch_related("tweets", "retweets")
             .annotate(
                 followers_count=Count("followers", distinct=True),
                 following_count=Count("following", distinct=True),

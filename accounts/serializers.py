@@ -179,7 +179,7 @@ class UserSerializer(serializers.ModelSerializer):
     following_count = serializers.IntegerField(read_only=True)
     followers = serializers.SerializerMethodField(read_only=True)
     following = serializers.SerializerMethodField(read_only=True)
-    posts = serializers.SerializerMethodField()
+    posts = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = User
@@ -204,20 +204,9 @@ class UserSerializer(serializers.ModelSerializer):
         return request.build_absolute_uri(url) if request else url
 
     def get_posts(self, obj):
-        from tweets.serializers import PostSerializer
-        from itertools import chain
-        from operator import attrgetter
-
-        tweets = obj.tweets.select_related("user", "user__profile").prefetch_related(
-            "comments"
-        )
-        retweets = obj.retweets.select_related("user", "user__profile", "tweet")
-        posts = sorted(
-            chain(tweets, retweets),
-            key=attrgetter("created_at"),
-            reverse=True,
-        )
-        return PostSerializer(posts, many=True).data
+        request = self.context.get("request")
+        url = reverse("user-posts", kwargs={"username": obj.username})
+        return request.build_absolute_uri(url) if request else url
 
 
 class ListUserSerializer(serializers.ModelSerializer):
