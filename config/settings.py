@@ -147,6 +147,19 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
+
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/day',                 # Baseline limit for anonymous traffic.
+        'user': '5000/day',                # Baseline limit for authenticated traffic.
+        'auth': '5/minute',                # Register, login, and password-reset protection.
+        'content_creation': '10/minute',   # Creating tweets (anti-spam).
+        'interaction': '30/minute',        # Like, retweet, and follow interactions.
+        'account_sensitive': '5/hour',     # Sensitive account actions (e.g. change password).
+    }
 }
 
 # Email Configuration

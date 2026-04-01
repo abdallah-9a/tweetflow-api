@@ -10,6 +10,7 @@ from .serializers import (
 )
 from .models import Follow
 from tweets.cache_utils import invalidate_feed_cache
+from config.throttles import InteractionRateThrottle
 
 # Create your views here.
 User = get_user_model()
@@ -19,6 +20,7 @@ class FollowUserAPIView(generics.CreateAPIView):
     queryset = Follow.objects.all()
     serializer_class = FollowUserSerializer
     permission_classes = [IsAuthenticated]
+    throttle_classes = [InteractionRateThrottle]
 
     def get_serializer_context(self):
         context = super().get_serializer_context()

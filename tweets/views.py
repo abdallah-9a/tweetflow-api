@@ -22,6 +22,7 @@ from .serializers import (
 )
 from .models import Tweet, Like, Comment, Retweet, Bookmark
 from .permissions import IsAuthorOrReadOnly, IsTweetAuthor, IsCommentOwner, CanEdit
+from config.throttles import ContentCreationRateThrottle, InteractionRateThrottle
 
 # Create your views here.
 User = get_user_model()
@@ -43,6 +44,7 @@ class CreateTweetAPIView(generics.CreateAPIView):
     queryset = Tweet.objects.all()
     serializer_class = TweetSerializer
     permission_classes = [IsAuthenticated]
+    throttle_classes = [ContentCreationRateThrottle]
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -296,6 +298,13 @@ class RetweetAPIView(
     serializer_class = RetweetSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_throttles(self):
+        # Rate-limit retweet creation only; listing/removing retweets should stay unrestricted.
+        if self.request.method == "POST":
+            return [InteractionRateThrottle()]
+
+        return super().get_throttles()
+
     def get_tweet(self):
         return get_object_or_404(Tweet, pk=self.kwargs["pk"])
 
@@ -380,6 +389,13 @@ class LikeTweetAPIView(
 
     serializer_class = LikeTweetSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_throttles(self):
+        # Rate-limit like creation only; listing/removing likes should stay unrestricted.
+        if self.request.method == "POST":
+            return [InteractionRateThrottle()]
+
+        return super().get_throttles()
 
     def get_queryset(self):
         return Like.objects.filter(tweet=self.get_tweet()).select_related(

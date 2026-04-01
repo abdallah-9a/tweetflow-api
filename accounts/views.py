@@ -25,6 +25,7 @@ from .serializers import (
     PasswordCheckSerializer,
 )
 from .permissions import IsActiveUser
+from config.throttles import AuthRateThrottle, AccountSensitiveRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
 from rest_framework import generics
@@ -40,6 +41,7 @@ def get_tokens_for_user(user):
 
 
 class UserRegistrationView(APIView):
+    throttle_classes = [AuthRateThrottle]
 
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
@@ -53,6 +55,7 @@ class UserRegistrationView(APIView):
 
 
 class UserLoginView(APIView):
+    throttle_classes = [AuthRateThrottle]
 
     def post(self, request):
 
@@ -109,6 +112,7 @@ class UserUpdateProfileView(generics.UpdateAPIView):
 
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [AccountSensitiveRateThrottle]
 
     def post(self, request):
         serializer = ChangePasswordSerializer(
@@ -122,6 +126,7 @@ class ChangePasswordView(APIView):
 
 
 class SendPasswordResetEmailView(APIView):
+    throttle_classes = [AuthRateThrottle]
 
     def post(self, request):
         serializer = SendPasswordRestEmailSerializer(data=request.data)
@@ -154,6 +159,7 @@ class SendPasswordResetEmailView(APIView):
 
 
 class UserPasswordResetView(APIView):
+    throttle_classes = [AuthRateThrottle]
 
     def post(self, request, uid, token):
         serializer = UserPasswordResetSerializer(
@@ -250,6 +256,7 @@ class DeactivateAPIView(APIView):
 class ActivateAPIView(APIView):
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [AuthRateThrottle]
 
     def post(self, request):
         serializer = ActivateSerializer(data=request.data)
