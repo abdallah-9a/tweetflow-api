@@ -6,7 +6,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.urls import reverse
 from django.core.cache import cache
 from .models import User
-from .utils import Util
+from .tasks import send_email_task
 from rest_framework import status, filters
 from rest_framework.response import Response
 from interactions.utils import create_notification
@@ -149,7 +149,7 @@ class SendPasswordResetEmailView(APIView):
                 "body": body,
                 "to_email": user.email,
             }
-            Util.send_email(data)
+            send_email_task.delay(data) # using Celery
 
         # Always return 200
         return Response(
@@ -238,13 +238,13 @@ class DeactivateAPIView(APIView):
         request.user.save()
         profile.save()
 
-        Util.send_email(
-            {
+        email_data = {
                 "subject": "Your account was deactivated",
                 "body": "If this wasn't you, please contact support immediately",
                 "to_email": request.user.email,
             }
-        )
+        send_email_task.delay(email_data) # Using Celery
+        
         create_notification(receiver=request.user, verb="deactivated")
 
         logout(request)
@@ -286,13 +286,14 @@ class ActivateAPIView(APIView):
         user.save()
         user.profile.save()
 
-        Util.send_email(
-            {
+        
+        email_data = {
                 "subject": "Your account was reactivated",
                 "body": "If this wasn't you, please contact support immediately",
                 "to_email": user.email,
             }
-        )
+        send_email_task.delay(email_data) # Using Celery
+        
         create_notification(receiver=user, verb="reactivated")
         return Response(
             {"detail": "Your account has been successfully reactivated"},
