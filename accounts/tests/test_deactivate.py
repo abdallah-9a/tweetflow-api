@@ -19,8 +19,8 @@ class TestDeactivateAccount(APITestCase):
 
     # --- Success ---
 
-    @patch("accounts.views.Util.send_email")
-    def test_deactivate_success(self, mock_email):
+    @patch("accounts.views.send_email_task.delay")
+    def test_deactivate_success(self, mock_delay):
         self.authenticate()
         response = self.client.post(self.url, {"password": "user1234"})
 
@@ -30,18 +30,19 @@ class TestDeactivateAccount(APITestCase):
         self.user.refresh_from_db()
         self.assertFalse(self.user.is_active)
         self.assertEqual(self.user.profile.status, "deactive")
+        mock_delay.assert_called_once()
 
-    @patch("accounts.views.Util.send_email")
-    def test_deactivate_sends_email(self, mock_email):
+    @patch("accounts.views.send_email_task.delay")
+    def test_deactivate_sends_email(self, mock_delay):
         self.authenticate()
         self.client.post(self.url, {"password": "user1234"})
 
-        mock_email.assert_called_once()
-        call_args = mock_email.call_args[0][0]
+        mock_delay.assert_called_once()
+        call_args = mock_delay.call_args.args[0]
         self.assertEqual(call_args["to_email"], self.user.email)
 
-    @patch("accounts.views.Util.send_email")
-    def test_deactivate_creates_notification(self, mock_email):
+    @patch("accounts.views.send_email_task.delay")
+    def test_deactivate_creates_notification(self, mock_delay):
         self.authenticate()
         self.client.post(self.url, {"password": "user1234"})
 
@@ -50,6 +51,7 @@ class TestDeactivateAccount(APITestCase):
                 receiver=self.user, verb="deactivated"
             ).exists()
         )
+        mock_delay.assert_called_once()
 
     # --- Invalid password ---
 
@@ -72,8 +74,8 @@ class TestDeactivateAccount(APITestCase):
 
     # --- Already deactivated ---
 
-    @patch("accounts.views.Util.send_email")
-    def test_deactivate_already_deactivated(self, mock_email):
+    @patch("accounts.views.send_email_task.delay")
+    def test_deactivate_already_deactivated(self, mock_delay):
         self.authenticate()
         self.user.profile.status = "deactive"
         self.user.is_active = False
@@ -84,7 +86,7 @@ class TestDeactivateAccount(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("already deactivated", response.data["detail"].lower())
-        mock_email.assert_not_called()
+        mock_delay.assert_not_called()
 
     # --- Unauthenticated ---
 

@@ -136,7 +136,15 @@ class SendPasswordRestEmailSerializer(serializers.Serializer):
         fields = ["email"]
 
 
-def validate(self, attrs):
+class UserPasswordResetSerializer(serializers.Serializer):
+    password = serializers.CharField(
+        max_length=255, style={"input_type": "password"}, write_only=True
+    )
+    password2 = serializers.CharField(
+        max_length=255, style={"input_type": "password"}, write_only=True
+    )
+
+    def validate(self, attrs):
         password = attrs.get("password")
         password2 = attrs.get("password2")
         token = self.context.get("token")
@@ -157,6 +165,15 @@ def validate(self, attrs):
 
         self.user = user
         return attrs
+
+    def save(self, **kwargs):
+        user = self.user
+        user.set_password(self.validated_data["password"])
+        user.save()
+
+        create_notification(receiver=user, verb="reset")
+
+        return user
 
 
 class ProfileSerializer(serializers.ModelSerializer):

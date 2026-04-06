@@ -21,8 +21,8 @@ class TestActivateAccount(APITestCase):
 
     # --- Success ---
 
-    @patch("accounts.views.Util.send_email")
-    def test_activate_success(self, mock_email):
+    @patch("accounts.views.send_email_task.delay")
+    def test_activate_success(self, mock_delay):
         response = self.client.post(
             self.url, {"username": "user", "password": "user1234"}
         )
@@ -33,17 +33,18 @@ class TestActivateAccount(APITestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.is_active)
         self.assertEqual(self.user.profile.status, "active")
+        mock_delay.assert_called_once()
 
-    @patch("accounts.views.Util.send_email")
-    def test_activate_sends_email(self, mock_email):
+    @patch("accounts.views.send_email_task.delay")
+    def test_activate_sends_email(self, mock_delay):
         self.client.post(self.url, {"username": "user", "password": "user1234"})
 
-        mock_email.assert_called_once()
-        call_args = mock_email.call_args[0][0]
+        mock_delay.assert_called_once()
+        call_args = mock_delay.call_args.args[0]
         self.assertEqual(call_args["to_email"], self.user.email)
 
-    @patch("accounts.views.Util.send_email")
-    def test_activate_creates_notification(self, mock_email):
+    @patch("accounts.views.send_email_task.delay")
+    def test_activate_creates_notification(self, mock_delay):
         self.client.post(self.url, {"username": "user", "password": "user1234"})
 
         self.assertTrue(
@@ -51,6 +52,7 @@ class TestActivateAccount(APITestCase):
                 receiver=self.user, verb="reactivated"
             ).exists()
         )
+        mock_delay.assert_called_once()
 
     # --- Invalid credentials ---
 
@@ -85,8 +87,8 @@ class TestActivateAccount(APITestCase):
 
     # --- Already active ---
 
-    @patch("accounts.views.Util.send_email")
-    def test_activate_already_active(self, mock_email):
+    @patch("accounts.views.send_email_task.delay")
+    def test_activate_already_active(self, mock_delay):
         # Re-activate user first
         self.user.is_active = True
         self.user.profile.status = "active"
@@ -99,15 +101,16 @@ class TestActivateAccount(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("already active", response.data["detail"].lower())
-        mock_email.assert_not_called()
+        mock_delay.assert_not_called()
 
     # --- No auth required ---
 
-    @patch("accounts.views.Util.send_email")
-    def test_activate_requires_no_authentication(self, mock_email):
+    @patch("accounts.views.send_email_task.delay")
+    def test_activate_requires_no_authentication(self, mock_delay):
         """Activate endpoint should be accessible without JWT since the user is deactivated."""
         response = self.client.post(
             self.url, {"username": "user", "password": "user1234"}
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        mock_delay.assert_called_once()
