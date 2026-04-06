@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
@@ -12,10 +14,15 @@ User = get_user_model()
 
 class TestMarkAllNotificationsRead(APITestCase):
     def setUp(self):
+        self.welcome_patcher = patch("accounts.tasks.send_welcome_notification_task.delay")
+        self.welcome_patcher.start()
+        self.addCleanup(self.welcome_patcher.stop)
+
         self.url = reverse("mark-all-read")
         self.user = User.objects.create_user(
             username="user", email="user@gmail.com", password="user1234"
         )
+        Notification.objects.create(receiver=self.user, verb="welcome")
         self.sender = User.objects.create_user(
             username="sender", email="sender@gmail.com", password="user1234"
         )
@@ -60,7 +67,7 @@ class TestMarkAllNotificationsRead(APITestCase):
         response = self.client.post(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("updated_count", response.data)
-        # 4 = 1 welcome notification (auto-created) + 3 test notifications
+        # 4 = 1 welcome notification seeded in setUp + 3 test notifications
         self.assertEqual(response.data["updated_count"], 4)
 
         # all are now read
@@ -105,7 +112,7 @@ class TestMarkAllNotificationsRead(APITestCase):
 
         response = self.client.post(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # 3 = 1 welcome notification (auto-created) + 2 unread test notifications
+        # 3 = 1 welcome notification seeded in setUp + 2 unread test notifications
         self.assertEqual(response.data["updated_count"], 3)
 
     def test_mark_all_notifications_read_no_unread(self):
@@ -123,7 +130,7 @@ class TestMarkAllNotificationsRead(APITestCase):
 
         response = self.client.post(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # 1 = welcome notification (auto-created and unread)
+        # 1 = welcome notification seeded in setUp and unread
         self.assertEqual(response.data["updated_count"], 1)
 
     def test_mark_all_notifications_read_only_affects_own_notifications(self):
@@ -152,7 +159,7 @@ class TestMarkAllNotificationsRead(APITestCase):
 
         response = self.client.post(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # 2 = 1 welcome notification (auto-created) + 1 test notification
+        # 2 = 1 welcome notification seeded in setUp + 1 test notification
         self.assertEqual(response.data["updated_count"], 2)
 
         # Verify only user's notification was updated
@@ -165,7 +172,7 @@ class TestMarkAllNotificationsRead(APITestCase):
         self.authenticate()
         response = self.client.post(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # 1 = welcome notification (auto-created on user registration)
+        # 1 = welcome notification seeded in setUp
         self.assertEqual(response.data["updated_count"], 1)
 
     def test_mark_all_notifications_read_unauthenticated(self):
