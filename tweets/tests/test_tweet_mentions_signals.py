@@ -1,12 +1,13 @@
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
+from django.test import override_settings
 from tweets.models import Tweet
 from interactions.models import Mention
 
 
 User = get_user_model()
 
-
+@override_settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_TASK_EAGER_PROPAGATES=True)
 class TestTweetMentions(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
@@ -17,7 +18,8 @@ class TestTweetMentions(APITestCase):
         )
 
     def test_mention_success(self):
-        tweet = Tweet.objects.create(user=self.user, content="Hello @user2")
+        with self.captureOnCommitCallbacks(execute=True):
+            tweet = Tweet.objects.create(user=self.user, content="Hello @user2")
         self.assertTrue(
             Mention.objects.filter(
                 mentioned_user=self.user2, content_id=tweet.id
@@ -28,7 +30,8 @@ class TestTweetMentions(APITestCase):
         user3 = User.objects.create_user(
             username="user3", email="user3@gmail.com", password="user1234"
         )
-        tweet = Tweet.objects.create(user=self.user, content="Hello @user2 and @user3")
+        with self.captureOnCommitCallbacks(execute=True):
+            tweet = Tweet.objects.create(user=self.user, content="Hello @user2 and @user3")
 
         self.assertTrue(
             Mention.objects.filter(
@@ -41,17 +44,20 @@ class TestTweetMentions(APITestCase):
         self.assertEqual(Mention.objects.filter(content_id=tweet.id).count(), 2)
 
     def test_mention_nonexistent_user(self):
-        tweet = Tweet.objects.create(user=self.user, content="Hello @no-user")
+        with self.captureOnCommitCallbacks(execute=True):
+            tweet = Tweet.objects.create(user=self.user, content="Hello @no-user")
         self.assertEqual(Mention.objects.filter(content_id=tweet.id).count(), 0)
 
     def test_mention_case_insensitivity(self):
-        tweet = Tweet.objects.create(user=self.user, content="Hello @USER2")
+        with self.captureOnCommitCallbacks(execute=True):
+            tweet = Tweet.objects.create(user=self.user, content="Hello @USER2")
         self.assertFalse(Mention.objects.filter(mentioned_user=self.user2).exists())
 
     def test_mention_self(self):
-        tweet = Tweet.objects.create(
-            user=self.user, content="I'm mentioning myself @user"
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            tweet = Tweet.objects.create(
+                user=self.user, content="I'm mentioning myself @user"
+            )
         self.assertFalse(
             Mention.objects.filter(
                 mentioned_user=self.user, content_id=tweet.id
