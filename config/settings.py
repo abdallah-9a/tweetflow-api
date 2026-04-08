@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "relationships",
     "interactions",
     "rest_framework",
+    "drf_spectacular",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
 ]
@@ -145,6 +146,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
 
@@ -160,6 +162,12 @@ REST_FRAMEWORK = {
         'interaction': '30/minute',        # Like, retweet, and follow interactions.
         'account_sensitive': '5/hour',     # Sensitive account actions (e.g. change password).
     }
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "TweetFlow API",
+    "DESCRIPTION": "API documentation for the TweetFlow backend.",
+    "VERSION": "1.0.0",
 }
 
 # Email Configuration
